@@ -12,6 +12,20 @@ benchmark runner.
 
 Jev resources: [TypeSafe AI](https://typesafe.ai/) · [Jev release announcement](https://typesafe.ai/blog/introducing-system-one-models-and-jev) · [Get Jev access](https://console.typesafe.ai/)
 
+## Why look at Jev?
+
+Jev is built for fast, typed decisions inside software, which makes it worth a
+closer look when a workflow needs a choice, score, or yes/no answer instead of
+a paragraph of generated text. [TypeSafe currently lists input pricing](https://typesafe.ai/)
+at **$0.042 per million tokens ($42 per billion)**, with output tokens free.
+Its [release report](https://typesafe.ai/blog/introducing-system-one-models-and-jev)
+lists **70–500 ms** end-to-end response times for TypeSafe and **40–200× faster**
+results for comparable System One queries. The [homepage](https://typesafe.ai/)
+also highlights one workflow evaluation at **193.6× faster** and **444.6×
+cheaper**; those figures are vendor-reported results for specific workflows,
+so real latency and cost will depend on the request, network, and comparison
+model.
+
 ## Screenshots
 
 The live console shows the flight stage, Jev request health, both control loops,
