@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="860" viewBox="0 0 1360 860" role="img" aria-labelledby="title desc">
+  <title id="title">JevLander live flight console</title>
+  <desc id="desc">Dark Lunar Lander control panel with the flight stage in the center, Jev telemetry on the left, and mission controls on the right.</desc>
+  <rect width="1360" height="860" fill="#0a0d16"/>
+  <style>
+    .text{font-family:Arial,sans-serif;fill:#dfe4f5}.dim{font-family:Arial,sans-serif;fill:#8891ab}.mono{font-family:monospace;fill:#dfe4f5}.label{font-family:Arial,sans-serif;fill:#8891ab;font-size:13px;letter-spacing:1px}.panel{fill:#121729;stroke:#262d47}.small{font-size:13px}.value{font-size:22px}.amber{fill:#ffb454}.cyan{fill:#6be6d6}.green{fill:#79e07f}.red{fill:#ff6b6b}
+  </style>
+  <text x="28" y="42" class="text" font-size="30" font-weight="700">Jev<tspan class="amber">Lander</tspan></text>
+  <text x="28" y="68" class="dim" font-size="16">Watch TypeSafe's Jev classifier pilot a Lunar Lander live, locally · real API calls, every run fresh.</text>
+  <rect x="1194" y="24" width="138" height="38" rx="7" fill="#171d33" stroke="#262d47"/>
+  <text x="1263" y="48" class="text" font-size="14" text-anchor="middle">View Jev Prompt</text>
+  <line x1="28" y1="90" x2="1332" y2="90" stroke="#262d47"/>
+
+  <rect x="28" y="112" width="278" height="292" rx="10" class="panel"/>
+  <text x="46" y="140" class="label">JEV LINK</text>
+  <g class="mono" font-size="15">
+    <text x="46" y="172" class="dim">Refresh rate</text><text x="274" y="172" text-anchor="end">1.8 / s</text>
+    <text x="46" y="204" class="dim">Avg latency</text><text x="274" y="204" text-anchor="end">842 ms</text>
+    <text x="46" y="236" class="dim">Queries</text><text x="274" y="236" text-anchor="end">42</text>
+    <text x="46" y="268" class="dim">Error rate</text><text x="274" y="268" class="green" text-anchor="end">0.0%</text>
+    <text x="46" y="300" class="dim">Discard rate</text><text x="274" y="300" class="amber" text-anchor="end">1.2%</text>
+    <text x="46" y="332" class="dim">Tokens (est.)</text><text x="274" y="332" text-anchor="end">18.4k</text>
+  </g>
+  <line x1="46" y1="352" x2="288" y2="352" stroke="#262d47"/>
+  <text x="46" y="380" class="label">LAST QUERY</text><rect x="190" y="362" width="98" height="28" rx="6" fill="#171d33" stroke="#a9793a"/><text x="239" y="381" class="amber mono small" text-anchor="middle">applied</text>
+
+  <rect x="28" y="420" width="278" height="416" rx="10" class="panel"/>
+  <text x="46" y="448" class="label">COMMAND LOG</text>
+  <text x="46" y="470" class="dim small">2 control loops: attitude + throttle</text>
+  <rect x="46" y="492" width="242" height="10" rx="3" fill="#79e07f"/><text x="46" y="522" class="dim small">APPLIED 84%</text><text x="288" y="522" class="dim small" text-anchor="end">DISCARDED 1%</text>
+  <g class="mono" font-size="11">
+    <line x1="46" y1="544" x2="288" y2="544" stroke="#262d47"/>
+    <text x="46" y="568" class="dim">t 040</text><text x="90" y="568" class="cyan">ATTITUDE</text><text x="188" y="568">rotate_left_25</text><text x="282" y="568" class="green" text-anchor="end">99%</text>
+    <text x="90" y="590" class="amber">THROTTLE</text><text x="188" y="590">thrust_50</text><text x="282" y="590" class="green" text-anchor="end">98%</text>
+    <line x1="46" y1="604" x2="288" y2="604" stroke="#262d47"/>
+    <text x="46" y="628" class="dim">t 041</text><text x="90" y="628" class="cyan">ATTITUDE</text><text x="188" y="628">hold_attitude</text><text x="282" y="628" class="amber" text-anchor="end">44%</text>
+    <text x="90" y="650" class="amber">THROTTLE</text><text x="188" y="650">thrust_75</text><text x="282" y="650" class="green" text-anchor="end">99%</text>
+    <line x1="46" y1="664" x2="288" y2="664" stroke="#262d47"/>
+    <text x="46" y="688" class="dim">t 042</text><text x="90" y="688" class="cyan">ATTITUDE</text><text x="188" y="688">rotate_right_25</text><text x="282" y="688" class="green" text-anchor="end">97%</text>
+    <text x="90" y="710" class="amber">THROTTLE</text><text x="188" y="710">thrust_50</text><text x="282" y="710" class="green" text-anchor="end">98%</text>
+  </g>
+
+  <rect x="324" y="112" width="672" height="462" rx="10" fill="#05070d" stroke="#262d47"/>
+  <rect x="342" y="130" width="86" height="28" rx="5" fill="#0a0d16" stroke="#6be6d6"/><text x="385" y="149" class="cyan mono small" text-anchor="middle">FLYING</text>
+  <g fill="#dfe4f5" opacity=".55"><circle cx="385" cy="216" r="1.5"/><circle cx="522" cy="176" r="1"/><circle cx="718" cy="236" r="1.5"/><circle cx="890" cy="182" r="1"/><circle cx="948" cy="310" r="1.5"/><circle cx="440" cy="360" r="1"/></g>
+  <path d="M342 518 Q430 480 510 500 T675 488 T820 506 T996 485 V574 H342Z" fill="#171d33"/>
+  <path d="M342 518 Q430 480 510 500 T675 488 T820 506 T996 485" fill="none" stroke="#8891ab" stroke-width="2"/>
+  <line x1="650" y1="490" x2="704" y2="490" stroke="#ffb454" stroke-width="5"/><text x="677" y="515" class="amber" font-size="12" text-anchor="middle">LANDING PAD</text>
+  <g transform="translate(566 290) rotate(-9)"><path d="M0 50 L22 0 L44 50 Z" fill="#dfe4f5" stroke="#6be6d6" stroke-width="2"/><rect x="12" y="24" width="20" height="15" rx="3" fill="#171d33" stroke="#6be6d6"/><path d="M4 45 L-12 64 M40 45 L56 64" stroke="#dfe4f5" stroke-width="3"/><path d="M10 53 L2 70 M34 53 L42 70" stroke="#dfe4f5" stroke-width="3"/><path d="M16 52 L28 52 L22 86 Z" fill="#ffb454" opacity=".85"/></g>
+  <text x="356" y="552" class="dim mono small">x offset  ·  −38.4 m</text><text x="982" y="552" class="dim mono small" text-anchor="end">altitude  ·  18.7 m</text>
+  <rect x="324" y="590" width="672" height="40" rx="7" fill="#171d33" stroke="#262d47"/><rect x="338" y="602" width="114" height="15" rx="7" fill="#ffb454"/><rect x="456" y="602" width="390" height="15" rx="7" fill="#262d47"/><text x="968" y="616" class="dim mono small" text-anchor="end">t=42 / 155</text>
+  <rect x="324" y="646" width="672" height="190" rx="10" class="panel"/><text x="344" y="674" class="text" font-size="17" font-weight="700">What Jev Is Being Told Right Now</text><text x="974" y="674" class="dim mono small" text-anchor="end">Guided control</text>
+  <rect x="344" y="692" width="632" height="122" rx="7" fill="#05070d" stroke="#262d47"/>
+  <text x="362" y="718" class="cyan" font-size="13" font-weight="700">GOAL</text><text x="362" y="740" class="text mono small">Select the actuator forecast with the smallest tracking error.</text><text x="362" y="772" class="cyan" font-size="13" font-weight="700">ATTITUDE</text><text x="362" y="794" class="dim mono small">rotate_left_25  ·  spin −9.2°/s  ·  error 1.4°/s</text>
+
+  <rect x="1014" y="112" width="318" height="462" rx="10" class="panel"/>
+  <text x="1034" y="140" class="label">MISSION CONTROL</text>
+  <text x="1034" y="176" class="dim small">DISTANCE TO LANDING PAD</text><text x="1298" y="176" class="amber mono" text-anchor="end">60 m</text><line x1="1034" y1="190" x2="1298" y2="190" stroke="#ffb454" stroke-width="4"/><circle cx="1100" cy="190" r="7" fill="#ffb454"/>
+  <text x="1034" y="230" class="dim small">STARTING FUEL</text><text x="1298" y="230" class="amber mono" text-anchor="end">100 units</text><line x1="1034" y1="244" x2="1298" y2="244" stroke="#ffb454" stroke-width="4"/><circle cx="1298" cy="244" r="7" fill="#ffb454"/>
+  <text x="1034" y="284" class="dim small">ATTITUDE THRESHOLD</text><text x="1298" y="284" class="mono" text-anchor="end">0.55</text><line x1="1034" y1="298" x2="1220" y2="298" stroke="#6be6d6" stroke-width="4"/><circle cx="1175" cy="298" r="7" fill="#6be6d6"/>
+  <text x="1034" y="338" class="dim small">THROTTLE THRESHOLD</text><text x="1298" y="338" class="mono" text-anchor="end">0.55</text><line x1="1034" y1="352" x2="1220" y2="352" stroke="#6be6d6" stroke-width="4"/><circle cx="1175" cy="352" r="7" fill="#6be6d6"/>
+  <rect x="1034" y="388" width="264" height="44" rx="7" fill="#ffb454"/><text x="1166" y="416" fill="#221604" font-family="Arial" font-size="16" font-weight="700" text-anchor="middle">Fly New Episode</text>
+  <rect x="1034" y="444" width="264" height="44" rx="7" fill="#171d33" stroke="#262d47"/><text x="1166" y="472" class="text" font-size="16" font-weight="700" text-anchor="middle">Play Manually</text>
+  <line x1="1034" y1="520" x2="1298" y2="520" stroke="#262d47"/><text x="1034" y="548" class="dim small">TELEMETRY</text><text x="1034" y="574" class="dim small">Velocity</text><text x="1298" y="574" class="mono" text-anchor="end">−3.1 m/s</text>
+  <text x="1034" y="602" class="dim small">Ground speed</text><text x="1298" y="602" class="mono" text-anchor="end">2.4 m/s</text><text x="1034" y="630" class="dim small">Fuel</text><text x="1298" y="630" class="amber mono" text-anchor="end">82.0</text>
+  <text x="1034" y="658" class="dim small">Angle</text><text x="1298" y="658" class="cyan mono" text-anchor="end">−9.0°</text>
+  <text x="28" y="852" class="dim" font-size="12">Representative UI capture · guidance-assisted controller · Moon gravity fixed at 1.62 m/s²</text>
+</svg>

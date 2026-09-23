@@ -1,0 +1,28 @@
+[project]
+name = "jevgame"
+version = "0.1.0"
+description = "Research toy: Jev plays Lunar Lander, one Choice question per tick."
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.27",
+    "tiktoken>=0.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+jevgame = "jevgame.cli:main"
+jevgame-serve = "jevgame.server:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["jevgame"]
+
+[tool.setuptools.package-data]
+jevgame = ["web/*.html"]

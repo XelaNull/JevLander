@@ -1,0 +1,1568 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JevGame — Live Lander</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root {
+    --bg: #0a0d16;
+    --bg-deep: #05070d;
+    --panel: #121729;
+    --panel-2: #171d33;
+    --line: #262d47;
+    --text: #dfe4f5;
+    --text-dim: #8891ab;
+    --amber: #ffb454;
+    --amber-dim: #a9793a;
+    --cyan: #6be6d6;
+    --red: #ff6b6b;
+    --green: #79e07f;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow Condensed', system-ui, sans-serif;
+    padding: 20px 16px 32px;
+    max-width: 1440px;
+    margin: 0 auto;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 20px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 14px;
+  }
+  h1 { font-size: 30px; font-weight: 700; letter-spacing: 0.01em; margin: 0; color: var(--text); }
+  h1 span { color: var(--amber); }
+  .subtitle { font-size: 15px; color: var(--text-dim); margin: 2px 0 0; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.55fr) minmax(230px, 0.85fr);
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 1100px) { .layout { grid-template-columns: minmax(0, 1.55fr) minmax(230px, 0.85fr); } .layout > div:first-child { order: 3; } }
+  @media (max-width: 780px) { .layout { grid-template-columns: 1fr; } .layout > div:first-child { order: 0; } }
+
+  .stage {
+    background: var(--bg-deep);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+  }
+  canvas { display: block; width: 100%; height: auto; }
+
+  .status-badge {
+    position: absolute; top: 12px; left: 12px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 5px 10px; border-radius: 5px;
+    background: rgba(10, 13, 22, 0.7); border: 1px solid var(--line);
+  }
+  .status-badge[data-s="flying"] { color: var(--cyan); }
+  .status-badge[data-s="landed"] { color: var(--green); border-color: var(--green); }
+  .status-badge[data-s="crashed"], .status-badge[data-s="out_of_fuel_crashed"] { color: var(--red); border-color: var(--red); }
+
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(5, 7, 13, 0.72);
+    font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--amber);
+    text-align: center; padding: 20px; gap: 8px; flex-direction: column;
+  }
+  .overlay[hidden] { display: none !important; }
+  .spinner {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 3px solid var(--line); border-top-color: var(--amber);
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .transport { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  button {
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 15px; letter-spacing: 0.02em;
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 7px; padding: 8px 16px; cursor: pointer;
+  }
+  button:hover { border-color: var(--amber-dim); }
+  button.primary { background: var(--amber); color: #221604; border-color: var(--amber); }
+  button.primary:hover { filter: brightness(1.08); }
+  button:disabled { opacity: 0.4; cursor: default; }
+
+  .scrub { flex: 1 1 160px; min-width: 120px; accent-color: var(--amber); }
+  .tick-readout { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-dim); min-width: 78px; text-align: right; }
+
+  .mission {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .mission h2, .telemetry h2 {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-dim);
+    margin: 0; font-weight: 600;
+  }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+  .guidance-hint { color: var(--text-dim); font-size: 11px; line-height: 1.5; }
+  input[type="text"] {
+    background: var(--bg-deep); border: 1px solid var(--line); border-radius: 6px;
+    color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 8px 10px;
+  }
+  .fly-btn { width: 100%; padding: 12px; font-size: 16px; }
+
+  .last-run { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+  .last-run b { color: var(--text); }
+
+  .telemetry { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-top: 14px; }
+  .tele-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+  .tele-cell { display: flex; flex-direction: column; gap: 2px; }
+  .tele-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim); }
+  .tele-value { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--text); }
+  .tele-value.warn { color: var(--amber); }
+  .tele-value.bad { color: var(--red); }
+  .tele-value.good { color: var(--green); }
+
+  .action-row { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+  .action-chip {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; letter-spacing: 0.03em;
+    padding: 6px 11px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--line);
+  }
+  .action-chip.thrust { color: var(--amber); border-color: var(--amber-dim); }
+  .action-chip.rotate { color: var(--cyan); border-color: var(--cyan); }
+
+  /* ---- Per-control reliability summary (replaces the old dense 3x3 text
+     grid): one stacked bar per control showing
+     applied/discarded/error as proportions, with the numbers alongside --
+     scan the bar for "mostly solid = healthy, mostly hollow/red = broken"
+     before reading any digit. ---- */
+  .cl-stats { font-size: 11px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+  .cl-stats-legend { display: flex; gap: 12px; margin-bottom: 8px; color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .cl-stats-legend span { display: flex; align-items: center; gap: 4px; }
+  .cl-stats-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
+  .cl-stats-legend i.sw-applied { background: var(--green); }
+  .cl-stats-legend i.sw-discarded { background: var(--amber); }
+  .cl-stats-legend i.sw-error { background: var(--red); }
+  .cl-stats-control-block { margin-bottom: 8px; }
+  .cl-stats-control-block:last-child { margin-bottom: 0; }
+  .cl-stats-control-name { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 13px; margin-bottom: 4px; color: var(--text); }
+  .cl-stats-row { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
+  .cl-stats-bar {
+    flex: 1; height: 10px; border-radius: 3px; overflow: hidden; display: flex;
+    background: var(--panel-2); border: 1px solid var(--line);
+  }
+  .cl-stats-bar-seg.applied { background: var(--green); }
+  .cl-stats-bar-seg.discarded { background: var(--amber); }
+  .cl-stats-bar-seg.error { background: var(--red); }
+  .cl-stats-bar-empty { color: var(--text-dim); font-size: 10px; padding-left: 4px; }
+  .cl-stats-n { width: 8.5em; flex: 0 0 auto; text-align: right; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); }
+
+  /* ---- Command log: one row per tick, attitude and throttle as two
+     equal, clearly-labeled control cells side by side. No elapsed-time
+     column -- which tick, and what each control did, is what matters. */
+  .command-log {
+    max-height: 320px; overflow-y: auto; display: flex; flex-direction: column;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  }
+  .command-log-row {
+    display: grid; grid-template-columns: 2.4em 1fr 1fr 1fr; align-items: center; gap: 4px;
+    padding: 3px 2px; border-bottom: 1px solid var(--line);
+  }
+  .command-log-row .clr-tick { color: var(--text-dim); font-size: 9.5px; }
+  .clr-metrics {
+    display: flex; flex-direction: column; gap: 0; padding: 2px 5px;
+    border-radius: 4px; border: 1px solid var(--line); background: var(--panel-2);
+    border-left-width: 3px; border-left-color: var(--text-dim);
+  }
+  .clr-metric { display: flex; justify-content: space-between; gap: 4px; font-size: 9px; }
+  .clr-metric-label { color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; font-size: 7.5px; align-self: center; }
+  .clr-metric-value { color: var(--text); font-weight: 600; }
+  .clr-control {
+    display: flex; flex-direction: column; gap: 0; padding: 2px 5px;
+    border-radius: 4px; border: 1px solid var(--line); background: var(--panel-2);
+    border-left-width: 3px;
+  }
+  .clr-control.link-attitude { border-left-color: var(--cyan); }
+  .clr-control.link-throttle { border-left-color: var(--amber); }
+  .clr-control-label {
+    font-size: 7.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim);
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .clr-control-conf { font-family: 'JetBrains Mono', monospace; font-weight: 700; letter-spacing: 0; font-size: 8.5px; }
+  .clr-control-conf.good { color: var(--green); }
+  .clr-control-conf.warn { color: var(--amber); }
+  .clr-control-conf.bad { color: var(--red); }
+  .clr-control-value { font-weight: 700; font-size: 9.5px; }
+  .clr-control-value.thrust { color: var(--amber); }
+  .clr-control-value.rotate { color: var(--cyan); }
+  .clr-control-value.idle { color: var(--text-dim); font-weight: 500; }
+  .clr-control-value.outcome-discarded { color: var(--text-dim); text-decoration: line-through; text-decoration-color: var(--amber-dim); }
+  .clr-control-value.outcome-error { color: var(--red); }
+  .clr-control-value.outcome-override { color: var(--amber); }
+  .command-log-empty { color: var(--text-dim); font-size: 12px; padding: 4px 2px; }
+
+  footer { margin-top: 20px; font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+
+  .prompt-overlay {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(5, 7, 13, 0.78); padding: 24px;
+  }
+  .prompt-overlay[hidden] { display: none !important; }
+  .prompt-modal {
+    width: min(760px, 100%); max-height: min(80vh, 720px);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .prompt-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 0; }
+  .prompt-modal-head h2 { margin: 0; font-size: 20px; font-weight: 700; }
+  .prompt-close {
+    background: none; border: none; color: var(--text-dim); font-size: 24px; line-height: 1;
+    cursor: pointer; padding: 2px 6px;
+  }
+  .prompt-close:hover { color: var(--text); }
+  .prompt-modal-sub { margin: 8px 20px 0; color: var(--text-dim); font-size: 13px; line-height: 1.5; }
+  .prompt-tabs { display: flex; align-items: center; gap: 6px; padding: 14px 20px 0; flex-wrap: wrap; }
+  .prompt-tab {
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 13px;
+    background: var(--panel-2); color: var(--text-dim); border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 12px; cursor: pointer;
+  }
+  .prompt-tab.active { background: var(--cyan); color: #07211f; border-color: var(--cyan); }
+  .prompt-tab-spacer { flex: 1; }
+  .prompt-body {
+    margin: 14px 20px 20px; padding: 14px 16px; overflow-y: auto;
+    background: var(--bg-deep); border: 1px solid var(--line); border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6;
+  }
+  .inline-prompt {
+    margin-top: 14px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden;
+  }
+  .inline-prompt-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px 0;
+  }
+  .inline-prompt-head h2 { margin: 0; font-size: 16px; font-weight: 700; }
+  .inline-prompt-status { color: var(--text-dim); font-size: 12px; }
+  .inline-prompt .prompt-body { margin: 10px 16px 16px; max-height: 260px; }
+  .prompt-section-title {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em; color: var(--cyan); margin: 14px 0 6px;
+  }
+  .prompt-section-title:first-child { margin-top: 0; }
+  .prompt-goal { color: var(--text); margin-bottom: 10px; }
+  .prompt-rule-list { margin: 0; padding-left: 1.3em; }
+  .prompt-rule-list li { margin-bottom: 8px; color: var(--text); }
+  .prompt-choice-row { display: flex; gap: 10px; margin-bottom: 6px; align-items: baseline; }
+  .prompt-choice-name { color: var(--amber); font-weight: 700; flex: 0 0 auto; min-width: 9em; }
+  .prompt-choice-desc { color: var(--text-dim); }
+  .prompt-keys { color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Jev<span>Lander</span></h1>
+    <p class="subtitle">Watch TypeSafe's Jev classifier pilot a Lunar Lander live, locally &mdash; real API calls, every run fresh.</p>
+  </div>
+  <button id="promptBtn">View Jev Prompt</button>
+</header>
+
+<div id="promptOverlay" class="prompt-overlay" hidden>
+  <div class="prompt-modal">
+    <div class="prompt-modal-head">
+      <h2>What Jev Is Actually Told</h2>
+      <button id="promptCloseBtn" class="prompt-close">&times;</button>
+    </div>
+    <p class="prompt-modal-sub">
+      Guidance supplies flight targets and actuator forecasts from <span class="mono">guidance.py</span>.
+      Jev chooses attitude and throttle independently. During a flight, this shows the latest actual criteria.
+    </p>
+    <div class="prompt-tabs">
+      <button class="prompt-tab active" data-q="attitude">Attitude</button>
+      <button class="prompt-tab" data-q="throttle">Throttle</button>
+    </div>
+    <div id="promptBody" class="prompt-body">Loading&hellip;</div>
+  </div>
+</div>
+
+<div class="layout">
+  <div>
+    <div class="telemetry" id="jevLinkPanel">
+      <h2>Jev Link</h2>
+      <div class="tele-grid">
+        <div class="tele-cell"><span class="tele-label">Refresh rate</span><span class="tele-value mono" id="jRate">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Avg latency</span><span class="tele-value mono" id="jLatency">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Queries</span><span class="tele-value mono" id="jQueries">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Error rate</span><span class="tele-value mono" id="jErrorRate">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Discard rate</span><span class="tele-value mono" id="jDiscardRate">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Tokens (est.)</span><span class="tele-value mono" id="jTokens">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Cost (est.)</span><span class="tele-value mono" id="jCost">—</span></div>
+      </div>
+      <div class="action-row">
+        <span class="tele-label">Last query</span>
+        <span class="action-chip mono" id="jLastOutcome">—</span>
+      </div>
+      <div class="action-row" style="display:block;">
+        <span class="tele-label">Decision timeline (ticks/sec)</span>
+        <canvas id="timeline" width="600" height="58" style="width:100%; height:58px; margin-top:6px; border-radius:6px; background:var(--panel-2);"></canvas>
+      </div>
+    </div>
+
+    <div class="telemetry" id="commandLogPanel">
+      <h2>Command Log</h2>
+      <p class="guidance-hint">2 control loops: attitude &amp; throttle. Both decisions are shown for every Jev tick.</p>
+      <div id="clStats" class="cl-stats"></div>
+      <div id="commandLog" class="command-log"></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="stage">
+      <span class="status-badge mono" id="statusBadge" data-s="flying">idle</span>
+      <canvas id="scene" width="900" height="620"></canvas>
+      <div class="overlay" id="overlay">
+        <div class="spinner"></div>
+        <div id="overlayText">Click "Fly New Episode" to begin</div>
+      </div>
+    </div>
+    <div class="transport">
+      <button id="playBtn" class="primary" disabled>Pause</button>
+      <button id="restartBtn" title="Replay the recorded flight; use Fly New Episode to apply mission settings" disabled>Replay from start</button>
+      <input type="range" id="scrub" class="scrub" min="0" max="1" value="0" step="1" disabled />
+      <span class="tick-readout mono" id="tickReadout">t=0</span>
+    </div>
+    <div class="inline-prompt" id="inlinePrompt">
+      <div class="inline-prompt-head">
+        <h2>What Jev Is Being Told Right Now</h2>
+        <span class="inline-prompt-status mono" id="inlinePromptStatus">Guided control</span>
+      </div>
+      <div id="inlinePromptBody" class="prompt-body">Fly an episode to see the live prompt here.</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="mission">
+      <h2>Mission Control</h2>
+      <div class="field">
+        <label for="distanceSlider">Distance to Landing Pad <span id="distanceReadout" class="mono">60 m</span></label>
+        <input type="range" id="distanceSlider" min="20" max="480" step="5" value="60" />
+        <p class="guidance-hint">Starting horizontal distance to the pad center. Applies to the next flight.</p>
+      </div>
+      <div class="field">
+        <label for="fuelSlider">Starting Fuel <span id="fuelReadout" class="mono">100 units</span></label>
+        <input type="range" id="fuelSlider" min="10" max="100" step="5" value="100" />
+        <p class="guidance-hint">Less fuel makes the next flight harder. Moon gravity is fixed at 1.62 m/s&sup2;.</p>
+      </div>
+      <div class="field">
+        <label>Attitude confidence threshold <span id="attitudeThresholdReadout" class="mono">0.55</span></label>
+        <input type="range" id="attitudeThresholdSlider" min="0" max="1" step="0.01" value="0.55" />
+      </div>
+      <div class="field">
+        <label>Throttle confidence threshold <span id="throttleThresholdReadout" class="mono">0.55</span></label>
+        <input type="range" id="throttleThresholdSlider" min="0" max="1" step="0.01" value="0.55" />
+      </div>
+      <div class="field">
+        <label>Guided control</label>
+        <p class="guidance-hint">Computed flight targets and actuator forecasts help Jev select attitude and throttle in one request per tick.</p>
+      </div>
+      <div class="field">
+        <label>Seed (optional)</label>
+        <input type="text" id="seedInput" placeholder="random" inputmode="numeric" />
+      </div>
+      <button id="flyBtn" class="primary fly-btn">Fly New Episode</button>
+      <button id="manualBtn" class="fly-btn" style="margin-top:8px;">Play Manually (←/→ + Space)</button>
+      <div class="last-run" id="lastRun"></div>
+      <div class="last-run" id="flightStart">No flight started yet.</div>
+    </div>
+
+    <div class="telemetry">
+      <h2>Telemetry</h2>
+      <div class="tele-grid">
+        <div class="tele-cell"><span class="tele-label">Altitude</span><span class="tele-value mono" id="tAlt">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Fuel</span><span class="tele-value mono" id="tFuel">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Distance to target</span><span class="tele-value mono" id="tDist">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Direction to target</span><span class="tele-value mono" id="tDir">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Vx / Vy</span><span class="tele-value mono" id="tVel">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Descent speed</span><span class="tele-value mono" id="tDescent">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Ground speed</span><span class="tele-value mono" id="tGroundSpeed">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Angle</span><span class="tele-value mono" id="tAngle">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Angular speed</span><span class="tele-value mono" id="tAngVel">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Braking margin</span><span class="tele-value mono" id="tBrake">—</span></div>
+      </div>
+      <div class="action-row" id="vertThrustGauge" style="display:none;">
+        <span class="tele-label">Vertical thrust gauge</span>
+        <span class="action-chip mono" id="tVertGauge">—</span>
+      </div>
+      <div class="action-row">
+        <span class="tele-label">Action</span>
+        <span class="action-chip mono" id="tAction">no_op</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Each run sends live Choice questions to Jev over a randomized start and freshly seeded cratered moonscape. Guidance batches attitude and throttle in one request and supplies computed navigation targets and actuator forecasts. Jev selects the controls; accepted answers are applied directly. Full audit log: <span class="mono">runs/server_jev_calls.db</span>. Tokens/cost shown here are <b>estimates</b>; actual API usage is retained in the raw audit responses.
+</footer>
+
+<script>
+const canvas = document.getElementById('scene');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+// Episode data accumulates as it streams in live, then is reused for replay.
+let meta = null;          // { episode_id, pad_x_min, pad_x_max, terrain_seed, terrain_profile }
+let frames = [];          // confirmed frames, in order
+let actions = [];         // actions[i] applied to reach frames[i+1]
+let mode = 'idle';        // 'idle' | 'live' | 'replay'
+let eventSource = null;
+
+// Jev Link: live query/error/refresh-rate stats for the current flight.
+// tick_ms (server-measured wall-clock between ticks, includes both real Jev
+// calls) feeds a rolling window so "refresh rate" reflects recent pace, not
+// a single noisy sample.
+const JEV_LINK_WINDOW = 15;
+let jevLink = { queries: 0, errors: 0, discards: 0, tickMsHistory: [], lastSteps: null, tokensEst: 0, costUsdEst: 0 };
+
+// Independent query/error/discard counts for the two controls.
+function freshControlStats() {
+  return {
+    attitude: { q: 0, e: 0, d: 0 },
+    throttle: { q: 0, e: 0, d: 0 },
+  };
+}
+let controlStats = freshControlStats();
+
+// Decision timeline: every tick's (action, tickMs, arrival time) so the
+// strip can show each individual decision as a visible tick mark, laid out
+// on a REAL time axis (not just one even slot per tick) with 1-second
+// gridlines -- so you can literally count how many marks fall between two
+// gridlines to see ticks/sec, instead of reading it off an averaged number.
+const TIMELINE_WINDOW_MS = 12000;
+let timelineHistory = [];
+
+// Command log: every action Jev actually issued this episode, newest on
+// top, each stamped with wall-clock time (sub-second precision) and time
+// elapsed since the episode's first tick -- lets you correlate a specific
+// command against the timeline strip and telemetry at that instant.
+let episodeStartMs = null;
+let commandLogEntries = [];
+// Was 400, the same as physics.MAX_TICKS -- any flight that ran close to
+// the full episode length would silently evict its earliest entries right
+// as they happened, well before the flight ended. Raised well above any
+// real episode length so nothing gets dropped mid-flight.
+const COMMAND_LOG_MAX = 5000;
+
+function resetJevLink() {
+  latestGuidedPayload = null;
+  jevLink = { queries: 0, errors: 0, discards: 0, tickMsHistory: [], lastSteps: null, tokensEst: 0, costUsdEst: 0 };
+  controlStats = freshControlStats();
+  timelineHistory = [];
+  episodeStartMs = null;
+  commandLogEntries = [];
+  renderJevLink();
+  drawTimeline();
+  renderClStats();
+  renderCommandLog();
+}
+
+function fmtClock(d) {
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  const s = String(d.getSeconds()).padStart(2, '0');
+  const ms = String(d.getMilliseconds()).padStart(3, '0');
+  return h + ':' + m + ':' + s + '.' + ms;
+}
+
+function actionLogClass(action) {
+  if (!action) return 'idle';
+  if (action.includes('thrust')) return 'thrust';
+  if (action.includes('rotate')) return 'rotate';
+  return 'idle';
+}
+
+// The two control links (attitude/RCS, throttle/main-engine) are always-on
+// and independent, but the physics layer combines their answers into one
+// composite action string (e.g. "rotate_left_thrust_half"), which collapses
+// to "no_op" whenever BOTH links happen to be idle at once -- that's
+// correct, but it reads as if nothing was decided at all. Split back out
+// into the two link values so both are visible side by side every tick,
+// for Jev ticks (which carry the real per-link `steps`) and human ticks
+// (parsed back out of the single composite action the keyboard produces).
+function splitAttitudeThrottle(action) {
+  const a = action || 'no_op';
+  let attitude = 'hold_attitude';
+  const rotateMatch = a.match(/rotate_(left|right)_(\d+)/);
+  if (rotateMatch) attitude = 'rotate_' + rotateMatch[1] + '_' + rotateMatch[2];
+  let throttle = 'no_op';
+  const thrustMatch = a.match(/thrust_(\d+)$/);
+  if (thrustMatch) throttle = 'thrust_' + thrustMatch[1];
+  return { attitude, throttle };
+}
+
+function outcomeClass(outcome) {
+  if (outcome === 'api_failure' || outcome === 'invalid_choice' || outcome === 'invalid_answer') return ' outcome-error';
+  if (outcome === 'discarded_low_confidence') return ' outcome-discarded';
+  if (outcome === 'safety_override_counter_spin' || outcome === 'safety_override_critical_tilt') return ' outcome-override';
+  return '';
+}
+
+function outcomeTitle(step, outcome, confidence) {
+  const parts = [step];
+  if (outcome) parts.push(outcome);
+  if (typeof confidence === 'number') parts.push('conf=' + confidence.toFixed(2));
+  return parts.join(' · ');
+}
+
+function confidenceClass(confidence) {
+  if (typeof confidence !== 'number') return '';
+  if (confidence < 0.4) return ' bad';
+  if (confidence < 0.55) return ' warn';
+  return ' good';
+}
+
+function controlCellHtml(linkClass, label, value, outcome, confidence) {
+  const confText = typeof confidence === 'number'
+    ? '<span class="clr-control-conf' + confidenceClass(confidence) + '">' + Math.round(confidence * 100) + '%</span>'
+    : '';
+  return '<div class="clr-control link-' + linkClass + '" title="' + outcomeTitle(label, outcome, confidence) + '">' +
+    '<span class="clr-control-label">' + label + confText + '</span>' +
+    '<span class="clr-control-value ' + actionLogClass(value) + outcomeClass(outcome) + '">' + value + '</span>' +
+  '</div>';
+}
+
+function renderCommandLog() {
+  const el = document.getElementById('commandLog');
+  if (!el) return;
+  if (!commandLogEntries.length) {
+    el.innerHTML = '<div class="command-log-empty">No commands issued yet.</div>';
+    return;
+  }
+  // Newest commands first; every tick has attitude and throttle.
+  el.innerHTML = commandLogEntries.slice().reverse().map(e =>
+    '<div class="command-log-row">' +
+      '<span class="clr-tick">t=' + e.tick + '</span>' +
+      controlCellHtml('attitude', 'Attitude', e.attitude, e.attitudeOutcome, e.attitudeConfidence) +
+      controlCellHtml('throttle', 'Throttle', e.throttle, e.throttleOutcome, e.throttleConfidence) +
+      metricsCellHtml(e.groundSpeed, e.descentSpeed, e.distanceToTarget) +
+    '</div>'
+  ).join('');
+  el.scrollTop = 0;
+}
+
+// One box carrying all three flight-state numbers relevant to THIS tick's
+// decision -- ground speed, descent speed, distance to the pad -- next to
+// the two controls that were reacting to them, instead of scattered across
+// the Telemetry panel where they're not tied to a specific tick's decision.
+function metricsCellHtml(groundSpeed, descentSpeed, distanceToTarget) {
+  const fmt1 = (v) => (typeof v === 'number' ? v.toFixed(1) : '—');
+  return '<div class="clr-metrics" title="ground speed / descent speed / distance to pad, at this tick">' +
+    '<div class="clr-metric"><span class="clr-metric-label">Ground</span><span class="clr-metric-value">' + fmt1(groundSpeed) + ' m/s</span></div>' +
+    '<div class="clr-metric"><span class="clr-metric-label">Descent</span><span class="clr-metric-value">' + fmt1(descentSpeed) + ' m/s</span></div>' +
+    '<div class="clr-metric"><span class="clr-metric-label">Dist</span><span class="clr-metric-value">' + fmt1(distanceToTarget) + ' m</span></div>' +
+  '</div>';
+}
+
+function pct(n, d) { return d ? (100 * n / d) : 0; }
+
+// One horizontal stacked bar per control: green=applied,
+// amber=discarded, red=error, proportional to share of that bucket's
+// queries. Scannable at a glance (mostly green = healthy, lots of
+// amber/red = that control is struggling) instead of a grid of
+// percentage text you have to read one cell at a time.
+function clStatsBarRow(bucket) {
+  const n = bucket.q;
+  const applied = n - bucket.d - bucket.e;
+  const bar = n
+    ? '<div class="cl-stats-bar">' +
+        (applied > 0 ? '<div class="cl-stats-bar-seg applied" style="flex:' + applied + ';"></div>' : '') +
+        (bucket.d > 0 ? '<div class="cl-stats-bar-seg discarded" style="flex:' + bucket.d + ';"></div>' : '') +
+        (bucket.e > 0 ? '<div class="cl-stats-bar-seg error" style="flex:' + bucket.e + ';"></div>' : '') +
+      '</div>'
+    : '<div class="cl-stats-bar"><span class="cl-stats-bar-empty">no data yet</span></div>';
+  const nText = n ? (pct(bucket.d, n).toFixed(0) + '% disc (n=' + n + ')') : '—';
+  return '<div class="cl-stats-row">' +
+    bar +
+    '<span class="cl-stats-n">' + nText + '</span>' +
+  '</div>';
+}
+
+function renderClStats() {
+  const el = document.getElementById('clStats');
+  if (!el) return;
+  el.innerHTML =
+    '<div class="cl-stats-legend">' +
+      '<span><i class="sw-applied"></i>applied</span>' +
+      '<span><i class="sw-discarded"></i>discarded (low confidence)</span>' +
+      '<span><i class="sw-error"></i>error</span>' +
+    '</div>' +
+    ['attitude', 'throttle'].map(key =>
+      '<div class="cl-stats-control-block">' +
+        '<div class="cl-stats-control-name">' + (key === 'attitude' ? 'Attitude' : 'Throttle') + '</div>' +
+        clStatsBarRow(controlStats[key]) +
+      '</div>'
+    ).join('');
+}
+
+// Straight-line distance to the pad from a frame's own already-computed
+// fields (x_offset_from_pad_center, altitude) -- no new physics needed,
+// just combining two numbers Jev already gets every tick.
+function distanceToTarget(frame) {
+  if (!frame || typeof frame.x_offset_from_pad_center !== 'number' || typeof frame.altitude !== 'number') return null;
+  return Math.hypot(frame.x_offset_from_pad_center, frame.altitude);
+}
+
+function logHumanCommand(tick, action, frame) {
+  const now = performance.now();
+  if (episodeStartMs === null) episodeStartMs = now;
+  const { attitude, throttle } = splitAttitudeThrottle(action);
+  commandLogEntries.push({
+    tick: typeof tick === 'number' ? tick : commandLogEntries.length,
+    attitude, throttle,
+    attitudeOutcome: null, throttleOutcome: null,
+    attitudeConfidence: null, throttleConfidence: null,
+    groundSpeed: frame ? frame.ground_speed_m_s : null,
+    descentSpeed: frame ? frame.descent_speed_m_s : null,
+    distanceToTarget: distanceToTarget(frame),
+    elapsedSec: (now - episodeStartMs) / 1000,
+    clock: fmtClock(new Date()),
+  });
+  if (commandLogEntries.length > COMMAND_LOG_MAX) commandLogEntries.shift();
+  renderCommandLog();
+}
+
+function recordJevTick(tickMs, steps, action, tick, frame) {
+  if (typeof tickMs === 'number' && tickMs > 0) {
+    jevLink.tickMsHistory.push(tickMs);
+    if (jevLink.tickMsHistory.length > JEV_LINK_WINDOW) jevLink.tickMsHistory.shift();
+  }
+  let attitudeOutcome = null, throttleOutcome = null;
+  let attitudeConfidence = null, throttleConfidence = null;
+  if (steps) {
+    jevLink.lastSteps = steps;
+    for (const s of steps) {
+      jevLink.queries++;
+      if (s.outcome === 'api_failure' || s.outcome === 'invalid_choice' || s.outcome === 'invalid_answer') jevLink.errors++;
+      if (s.outcome === 'discarded_low_confidence') jevLink.discards++;
+      if (typeof s.input_tokens_est === 'number') jevLink.tokensEst += s.input_tokens_est;
+      if (typeof s.cost_usd_est === 'number') jevLink.costUsdEst += s.cost_usd_est;
+
+      const bucket = controlStats[s.step];
+      if (bucket) {
+        bucket.q++;
+        if (s.outcome === 'api_failure' || s.outcome === 'invalid_choice' || s.outcome === 'invalid_answer') bucket.e++;
+        if (s.outcome === 'discarded_low_confidence') bucket.d++;
+      }
+      if (s.step === 'attitude') { attitudeOutcome = s.outcome; attitudeConfidence = s.confidence; }
+      if (s.step === 'throttle') { throttleOutcome = s.outcome; throttleConfidence = s.confidence; }
+    }
+  }
+  if (steps) {
+    latestGuidedPayload = steps.find(s => s.question_payload)?.question_payload || null;
+    renderInlinePrompt();
+    if (!document.getElementById('promptOverlay').hidden) renderPromptBody();
+  }
+  const now = performance.now();
+  timelineHistory.push({ action: action || 'no_op', tickMs: tickMs || null, t: now });
+  timelineHistory = timelineHistory.filter(e => now - e.t <= TIMELINE_WINDOW_MS);
+
+  if (episodeStartMs === null) episodeStartMs = now;
+  const wallClock = new Date();
+  // Prefer the real per-link choice from `steps` (what Jev actually
+  // answered for EACH question this tick) over re-deriving it from the
+  // composite action, so e.g. a discarded-low-confidence attitude answer
+  // that fell back to hold_attitude still shows as hold_attitude here too
+  // (steps and the composite action are already built from the same
+  // resolved choices, so this is just avoiding re-parsing a string).
+  let attitude = 'hold_attitude', throttle = 'no_op';
+  if (steps) {
+    for (const s of steps) {
+      if (s.step === 'attitude' && s.choice) attitude = s.choice;
+      if (s.step === 'throttle' && s.choice) throttle = s.choice;
+    }
+  } else {
+    ({ attitude, throttle } = splitAttitudeThrottle(action));
+  }
+  commandLogEntries.push({
+    tick: typeof tick === 'number' ? tick : commandLogEntries.length,
+    attitude, throttle,
+    attitudeOutcome, throttleOutcome, attitudeConfidence, throttleConfidence,
+    groundSpeed: frame ? frame.ground_speed_m_s : null,
+    descentSpeed: frame ? frame.descent_speed_m_s : null,
+    distanceToTarget: distanceToTarget(frame),
+    elapsedSec: (now - episodeStartMs) / 1000,
+    clock: fmtClock(wallClock),
+  });
+  if (commandLogEntries.length > COMMAND_LOG_MAX) commandLogEntries.shift();
+
+  renderClStats();
+  renderJevLink();
+  drawTimeline();
+  renderCommandLog();
+}
+
+function timelineColor(action) {
+  if (!action) return '#4a5170';
+  if (action.includes('thrust') && action.includes('rotate')) return css('--cyan');
+  if (action.includes('thrust')) return css('--amber');
+  if (action.includes('rotate')) return css('--cyan');
+  return '#4a5170';
+}
+
+function drawTimeline() {
+  const cvs = document.getElementById('timeline');
+  if (!cvs) return;
+  const ctx2 = cvs.getContext('2d');
+  const w = cvs.width, h = cvs.height;
+  const labelH = 14;
+  const barAreaH = h - labelH;
+  ctx2.clearRect(0, 0, w, h);
+
+  const now = performance.now();
+  const windowStart = now - TIMELINE_WINDOW_MS;
+  const xOf = (t) => w * (t - windowStart) / TIMELINE_WINDOW_MS;
+
+  // 1-second gridlines, right edge = now (t=0s), counting back in whole
+  // seconds -- this is the ruler you count tick-marks against to see
+  // ticks/sec directly, rather than trusting a computed average.
+  ctx2.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx2.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx2.font = '9px "JetBrains Mono", monospace';
+  ctx2.lineWidth = 1;
+  const secs = Math.ceil(TIMELINE_WINDOW_MS / 1000);
+  for (let s = 0; s <= secs; s++) {
+    const t = now - s * 1000;
+    const x = xOf(t);
+    if (x < 0) continue;
+    ctx2.beginPath();
+    ctx2.moveTo(x + 0.5, 0);
+    ctx2.lineTo(x + 0.5, barAreaH);
+    ctx2.stroke();
+    if (s > 0) ctx2.fillText('-' + s + 's', Math.max(2, x - 10), h - 3);
+  }
+
+  if (!timelineHistory.length) return;
+  timelineHistory.forEach((entry) => {
+    const x = xOf(entry.t);
+    const barW = 3;
+    // Bar height encodes how long that tick took (the batched request, wall
+    // clock) so you can see the actual per-decision cadence, not just an
+    // averaged rate -- taller bar = slower single decision.
+    const ms = entry.tickMs || 0;
+    const heightFrac = Math.min(1, ms / 1500);
+    const barH = Math.max(4, heightFrac * (barAreaH - 4));
+    ctx2.fillStyle = timelineColor(entry.action);
+    ctx2.fillRect(x - barW / 2, barAreaH - barH, barW, barH);
+  });
+}
+
+function renderJevLink() {
+  const hist = jevLink.tickMsHistory;
+  const avgMs = hist.length ? hist.reduce((a, b) => a + b, 0) / hist.length : null;
+  document.getElementById('jRate').textContent = avgMs ? (1000 / avgMs).toFixed(2) + ' Hz' : '—';
+  document.getElementById('jLatency').textContent = avgMs ? avgMs.toFixed(0) + ' ms' : '—';
+  document.getElementById('jQueries').textContent = String(jevLink.queries);
+  const errEl = document.getElementById('jErrorRate');
+  const errorRate = jevLink.queries ? (100 * jevLink.errors / jevLink.queries) : 0;
+  errEl.textContent = jevLink.queries ? errorRate.toFixed(1) + '%' : '—';
+  errEl.className = 'tele-value mono' + (errorRate > 20 ? ' bad' : errorRate > 0 ? ' warn' : ' good');
+  const discardEl = document.getElementById('jDiscardRate');
+  const discardRate = jevLink.queries ? (100 * jevLink.discards / jevLink.queries) : 0;
+  discardEl.textContent = jevLink.queries ? discardRate.toFixed(1) + '%' : '—';
+  discardEl.className = 'tele-value mono' + (discardRate > 30 ? ' bad' : discardRate > 10 ? ' warn' : ' good');
+  document.getElementById('jTokens').textContent = jevLink.queries ? jevLink.tokensEst.toLocaleString() : '—';
+  document.getElementById('jCost').textContent = jevLink.queries ? '$' + jevLink.costUsdEst.toFixed(5) : '—';
+  const lastEl = document.getElementById('jLastOutcome');
+  if (jevLink.lastSteps) {
+    lastEl.textContent = jevLink.lastSteps.map(s => s.step + ':' + s.outcome).join('  ');
+  } else {
+    lastEl.textContent = '—';
+  }
+}
+
+// Smooth-motion interpolation: the raw per-tick physics step can be a large
+// jump in one 0.5s tick (e.g. a single thrust tick adds ~3 m/s of delta-v --
+// see CLAUDE.md/physics.py comments), and snapping the sprite straight
+// between tick positions made it visibly bounce. Instead we always tween
+// the DRAWN position between the previous and newest confirmed frame over a
+// short window, live or replay -- physics/tuning is untouched, only the
+// on-screen motion is smoothed.
+let prevDisplay = null;
+let targetDisplay = null;
+let transitionStart = 0;
+let transitionDurationMs = 300;
+let currentAction = null;
+
+// Replay-only state (after a live flight completes).
+let replayIndex = 0;
+let replayPlaying = false;
+let replayAcc = 0;
+const REPLAY_TICK_MS = 500; // replay at the simulation's fixed 0.5-second tick
+let timelineRedrawTimer = null;
+let attitudeThreshold = 0.55; // matches jev_player.DEFAULT_CONFIDENCE_THRESHOLD
+let throttleThreshold = 0.55;
+const MAX_LANDING_SPEED_REF = 3.0; // matches physics.py MAX_LANDING_SPEED, for telemetry coloring only
+
+let lastTs = null;
+
+// Keep terrain visible while fitting the higher climbs of long approaches.
+const WORLD_Y_MIN = -16, WORLD_Y_MAX = 46;
+let cameraYMax = WORLD_Y_MAX;
+// Horizontal camera window width (world units); camera follows the lander's x.
+const CAMERA_HALF_WIDTH = 65;
+
+function worldToScreen(x, y, camX) {
+  const sx = (x - (camX - CAMERA_HALF_WIDTH)) / (CAMERA_HALF_WIDTH * 2) * W;
+  const sy = H - (y - WORLD_Y_MIN) / (cameraYMax - WORLD_Y_MIN) * H;
+  return [sx, sy];
+}
+
+const stars = [];
+(function seedStars() {
+  let s = 987654321;
+  function rnd() { s = (s * 1103515245 + 12345) & 0x7fffffff; return (s % 10000) / 10000; }
+  for (let i = 0; i < 90; i++) stars.push({ x: rnd(), y: rnd() * 0.55, r: rnd() * 1.3 + 0.3, a: rnd() * 0.6 + 0.2 });
+})();
+
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+function terrainHeightAtFromProfile(x, profile) {
+  // Linear interpolation across the server-sampled profile (exact match to
+  // physics.terrain_height_at, sampled every 1.5 world units).
+  if (x <= profile[0][0]) return profile[0][1];
+  if (x >= profile[profile.length - 1][0]) return profile[profile.length - 1][1];
+  let lo = 0, hi = profile.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (profile[mid][0] <= x) lo = mid; else hi = mid;
+  }
+  const [x0, y0] = profile[lo], [x1, y1] = profile[hi];
+  const t = (x - x0) / (x1 - x0 || 1);
+  return y0 + (y1 - y0) * t;
+}
+
+function drawScene(frame, prevFrames, action) {
+  const camX = frame.x;
+  cameraYMax = Math.max(WORLD_Y_MAX, frame.y + 12);
+  ctx.clearRect(0, 0, W, H);
+
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, css('--bg-deep'));
+  grad.addColorStop(1, css('--bg'));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#ffffff';
+  for (const st of stars) {
+    ctx.globalAlpha = st.a;
+    ctx.beginPath();
+    ctx.arc(st.x * W, st.y * H, st.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // terrain profile within the camera window
+  const profile = meta.terrain_profile;
+  const xMin = camX - CAMERA_HALF_WIDTH - 5, xMax = camX + CAMERA_HALF_WIDTH + 5;
+  ctx.beginPath();
+  let started = false;
+  for (const [px, ph] of profile) {
+    if (px < xMin || px > xMax) continue;
+    const [sx, sy] = worldToScreen(px, ph, camX);
+    if (!started) { ctx.moveTo(sx, sy); started = true; } else { ctx.lineTo(sx, sy); }
+  }
+  const [lastX] = worldToScreen(xMax, 0, camX);
+  ctx.lineTo(lastX, H);
+  const [firstX] = worldToScreen(xMin, 0, camX);
+  ctx.lineTo(firstX, H);
+  ctx.closePath();
+  ctx.fillStyle = '#151b30';
+  ctx.fill();
+  ctx.strokeStyle = css('--line');
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // pad highlight
+  const [padX1, padY] = worldToScreen(meta.pad_x_min, 0, camX);
+  const [padX2] = worldToScreen(meta.pad_x_max, 0, camX);
+  ctx.strokeStyle = css('--amber');
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(padX1, padY);
+  ctx.lineTo(padX2, padY);
+  ctx.stroke();
+  ctx.fillStyle = css('--text-dim');
+  ctx.font = '11px "JetBrains Mono", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('LANDING PAD', (padX1 + padX2) / 2, padY + 18);
+
+  // trail (only recent history within the camera window, for a scrolling feel)
+  ctx.strokeStyle = css('--cyan');
+  ctx.globalAlpha = 0.4;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  let trailStarted = false;
+  for (const f of prevFrames) {
+    if (f.x < xMin || f.x > xMax) continue;
+    const [px, py] = worldToScreen(f.x, f.y, camX);
+    if (!trailStarted) { ctx.moveTo(px, py); trailStarted = true; } else { ctx.lineTo(px, py); }
+  }
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Projected path: where the CURRENT velocity leads if no further input
+  // happens -- same ballistic formula (constant vx, vy decaying under
+  // gravity) physics.py's as_dict() uses to compute
+  // projected_impact_x_m/projected_impact_time_s, replotted here as a
+  // dashed curve out to that projected touchdown point/time, with a marker
+  // showing how far off the pad it lands. This is the forward-looking half
+  // of the trail: behind you is where you've been, this is where you're
+  // headed if nothing changes.
+  if (typeof frame.projected_impact_time_s === 'number' && frame.projected_impact_time_s > 0) {
+    const g = frame.gravity_m_s2 || 1.62;
+    const totalT = frame.projected_impact_time_s;
+    const steps = 24;
+    ctx.strokeStyle = css('--amber');
+    ctx.globalAlpha = 0.55;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 5]);
+    ctx.beginPath();
+    let started2 = false;
+    for (let i = 0; i <= steps; i++) {
+      const t = (totalT * i) / steps;
+      const px = frame.x + frame.vx * t;
+      const py = frame.y + frame.vy * t - 0.5 * g * t * t;
+      if (px < xMin || px > xMax) continue;
+      const [sx, sy] = worldToScreen(px, py, camX);
+      if (!started2) { ctx.moveTo(sx, sy); started2 = true; } else { ctx.lineTo(sx, sy); }
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+
+    // Projected impact marker + distance-from-pad label.
+    if (frame.projected_impact_x_m >= xMin && frame.projected_impact_x_m <= xMax) {
+      const groundAtImpact = terrainHeightAtFromProfile(frame.projected_impact_x_m, meta.terrain_profile);
+      const [ix, iy] = worldToScreen(frame.projected_impact_x_m, groundAtImpact, camX);
+      // Amber + upward-arrow specifically marks "lands short" (needs_more_
+      // vertical_thrust) as visually distinct from a plain red overshoot/
+      // miss on the far side, since the fix (more vertical thrust) differs.
+      ctx.fillStyle = frame.projected_over_pad ? css('--green')
+        : frame.needs_more_vertical_thrust ? css('--amber') : css('--red');
+      ctx.beginPath();
+      ctx.arc(ix, iy, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = '10px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center';
+      const label = frame.needs_more_vertical_thrust
+        ? '↑' + frame.projected_shortfall_m.toFixed(0) + 'm short'
+        : (frame.projected_distance_from_pad_m >= 0 ? '+' : '') + frame.projected_distance_from_pad_m.toFixed(0) + 'm';
+      ctx.fillText(
+        label,
+        ix, iy - 8,
+      );
+    }
+  }
+
+  // lander
+  const [lx, ly] = worldToScreen(frame.x, frame.y, camX);
+  ctx.save();
+  ctx.translate(lx, ly);
+  ctx.rotate(frame.angle_deg * Math.PI / 180);
+
+  const bodyH = 24, bodyW = 16;
+  // The translate/rotate origin above is world (frame.x, frame.y) -- the
+  // point physics.terrain_height_at compares against for ground contact,
+  // i.e. where the FEET touch down. Every shape below is drawn relative to
+  // that by subtracting `foot` (the un-shifted leg-bottom y), so local
+  // y=0 is the bottom of the legs, not the middle of the body.
+  const foot = bodyH * 0.65;
+
+  if (action && action.includes('thrust')) {
+    ctx.beginPath();
+    ctx.moveTo(-6, bodyH * 0.55 - foot);
+    ctx.lineTo(6, bodyH * 0.55 - foot);
+    ctx.lineTo(0, bodyH * 0.55 - foot + 15 + Math.random() * 7);
+    ctx.closePath();
+    const flameGrad = ctx.createLinearGradient(0, bodyH * 0.55 - foot, 0, bodyH * 0.55 - foot + 20);
+    flameGrad.addColorStop(0, '#fff3c4');
+    flameGrad.addColorStop(1, css('--amber'));
+    ctx.fillStyle = flameGrad;
+    ctx.fill();
+  }
+  if (action === 'rotate_left' || action === 'rotate_left_thrust') {
+    ctx.fillStyle = css('--cyan');
+    ctx.beginPath(); ctx.arc(bodyW * 0.65, -bodyH * 0.35 - foot, 3, 0, Math.PI * 2); ctx.fill();
+  }
+  if (action === 'rotate_right' || action === 'rotate_right_thrust') {
+    ctx.fillStyle = css('--cyan');
+    ctx.beginPath(); ctx.arc(-bodyW * 0.65, -bodyH * 0.35 - foot, 3, 0, Math.PI * 2); ctx.fill();
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(0, -bodyH * 0.6 - foot);
+  ctx.lineTo(bodyW * 0.5, bodyH * 0.5 - foot);
+  ctx.lineTo(-bodyW * 0.5, bodyH * 0.5 - foot);
+  ctx.closePath();
+  ctx.fillStyle = frame.status === 'flying' ? '#e7ebf7' : (frame.status === 'landed' ? css('--green') : css('--red'));
+  ctx.fill();
+  ctx.strokeStyle = css('--line');
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.strokeStyle = '#aab1cc';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-bodyW * 0.45, bodyH * 0.3 - foot); ctx.lineTo(-bodyW * 0.9, 0);
+  ctx.moveTo(bodyW * 0.45, bodyH * 0.3 - foot); ctx.lineTo(bodyW * 0.9, 0);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function fmt(n, d) { return (typeof n === 'number') ? n.toFixed(d) : '—'; }
+
+function renderTelemetry(frame, action) {
+  document.getElementById('tAlt').textContent = fmt(frame.altitude, 1) + ' m';
+  const fuelEl = document.getElementById('tFuel');
+  fuelEl.textContent = fmt(frame.fuel, 1);
+  fuelEl.className = 'tele-value mono' + (frame.fuel < 15 ? ' bad' : frame.fuel < 40 ? ' warn' : '');
+  document.getElementById('tDist').textContent = fmt(distanceToTarget(frame), 1) + ' m';
+  const xOff = frame.x_offset_from_pad_center;
+  document.getElementById('tDir').textContent =
+    (typeof xOff !== 'number') ? '—' : (Math.abs(xOff) < 0.5 ? 'on target' : (xOff > 0 ? 'West' : 'East'));
+  document.getElementById('tVel').textContent = fmt(frame.vx, 2) + ' / ' + fmt(frame.vy, 2) + ' m/s';
+  const descentEl = document.getElementById('tDescent');
+  descentEl.textContent = fmt(frame.descent_speed_m_s, 2) + ' m/s';
+  descentEl.className = 'tele-value mono' + (frame.descent_speed_m_s > MAX_LANDING_SPEED_REF ? ' warn' : ' good');
+  document.getElementById('tGroundSpeed').textContent = fmt(frame.ground_speed_m_s, 2) + ' m/s';
+  document.getElementById('tAngle').textContent = fmt(frame.angle_deg, 1) + '°';
+  const angVel = frame.angle_vel_deg_s;
+  document.getElementById('tAngVel').textContent =
+    (typeof angVel !== 'number') ? '—' :
+    (Math.abs(angVel) < 0.5 ? 'still' : fmt(Math.abs(angVel), 1) + '°/s ' + (angVel > 0 ? 'right' : 'left'));
+  const brakeEl = document.getElementById('tBrake');
+  brakeEl.textContent = fmt(frame.braking_margin_m, 1) + ' m';
+  brakeEl.className = 'tele-value mono' + (frame.braking_margin_m < 0 ? ' warn' : ' good');
+
+  // Vertical-thrust gauge: the current path's parabola would touch down
+  // BEFORE horizontally reaching the pad -- gravity is winning the race
+  // against forward progress, and the fix is more vertical thrust (slow
+  // the fall, buy time to cover the remaining distance), not more sideways
+  // speed. Surfaced separately from the plain braking-margin warning
+  // because it can fire even when braking_margin_m still looks fine.
+  const gaugeRow = document.getElementById('vertThrustGauge');
+  const gaugeEl = document.getElementById('tVertGauge');
+  if (frame.needs_more_vertical_thrust) {
+    gaugeRow.style.display = 'flex';
+    gaugeEl.textContent = '↑ LANDS ' + fmt(frame.projected_shortfall_m, 0) + 'm SHORT — ADD VERTICAL THRUST';
+    gaugeEl.className = 'action-chip mono thrust';
+  } else {
+    gaugeRow.style.display = 'none';
+  }
+
+  const actionEl = document.getElementById('tAction');
+  actionEl.textContent = action || 'no_op';
+  actionEl.className = 'action-chip mono' + (action && action.includes('thrust') ? ' thrust' : '') + (action && action.includes('rotate') ? ' rotate' : '');
+
+  const badge = document.getElementById('statusBadge');
+  badge.textContent = frame.status;
+  badge.dataset.s = frame.status;
+}
+
+function currentInterpolatedFrame() {
+  if (!targetDisplay) return null;
+  if (!prevDisplay) return targetDisplay;
+  const t = Math.min(1, (performance.now() - transitionStart) / transitionDurationMs);
+  const lerp = (a, b) => a + (b - a) * t;
+  return {
+    ...targetDisplay,
+    x: lerp(prevDisplay.x, targetDisplay.x),
+    y: lerp(prevDisplay.y, targetDisplay.y),
+    angle_deg: lerp(prevDisplay.angle_deg, targetDisplay.angle_deg),
+  };
+}
+
+function beginTransition(newFrame, durationMs) {
+  // Start the tween from wherever the sprite is actually drawn right now
+  // (not the previous tick's raw endpoint) so a new tick arriving mid-tween
+  // never causes a visible skip.
+  prevDisplay = currentInterpolatedFrame() || newFrame;
+  targetDisplay = newFrame;
+  transitionStart = performance.now();
+  transitionDurationMs = durationMs;
+}
+
+function renderNow() {
+  const interp = currentInterpolatedFrame();
+  if (!interp || !targetDisplay) return;
+  const historyFrames = mode === 'replay' ? frames.slice(0, replayIndex + 1) : frames;
+  drawScene(interp, historyFrames, currentAction);
+  renderTelemetry(targetDisplay, currentAction);
+
+  const scrub = document.getElementById('scrub');
+  const idx = mode === 'replay' ? replayIndex : frames.length - 1;
+  scrub.max = Math.max(0, frames.length - 1);
+  scrub.value = idx;
+  document.getElementById('tickReadout').textContent = 't=' + idx + '/' + Math.max(0, frames.length - 1);
+}
+
+function setReplayControlsEnabled(enabled) {
+  document.getElementById('playBtn').disabled = !enabled;
+  document.getElementById('restartBtn').disabled = !enabled;
+  document.getElementById('scrub').disabled = !enabled;
+}
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  if (mode !== 'replay') return;
+  replayPlaying = !replayPlaying;
+  document.getElementById('playBtn').textContent = replayPlaying ? 'Pause' : 'Play';
+});
+document.getElementById('restartBtn').addEventListener('click', () => {
+  if (mode !== 'replay') return;
+  replayIndex = 0;
+  replayPlaying = true;
+  document.getElementById('playBtn').textContent = 'Pause';
+  currentAction = null;
+  beginTransition(frames[0], 1);
+  renderNow();
+});
+document.getElementById('scrub').addEventListener('input', (e) => {
+  if (mode !== 'replay') return;
+  replayIndex = parseInt(e.target.value, 10);
+  replayPlaying = false;
+  document.getElementById('playBtn').textContent = 'Play';
+  currentAction = replayIndex > 0 ? actions[replayIndex - 1] : null;
+  beginTransition(frames[replayIndex], 1);
+  renderNow();
+});
+// Mission controls: read visible values at launch, not cached event state.
+function readMissionControls() {
+  const distance = document.getElementById('distanceSlider').value;
+  const fuel = document.getElementById('fuelSlider').value;
+  document.getElementById('distanceReadout').textContent = distance + ' m';
+  document.getElementById('fuelReadout').textContent = fuel + ' units';
+  return { distance, fuel };
+}
+for (const id of ['distanceSlider', 'fuelSlider']) {
+  for (const event of ['input', 'change']) {
+    document.getElementById(id).addEventListener(event, readMissionControls);
+  }
+}
+// The browser may restore form controls on reload/back without input events.
+window.addEventListener('pageshow', readMissionControls);
+readMissionControls();
+document.getElementById('attitudeThresholdSlider').addEventListener('input', (e) => {
+  attitudeThreshold = parseFloat(e.target.value);
+  document.getElementById('attitudeThresholdReadout').textContent = attitudeThreshold.toFixed(2);
+});
+document.getElementById('throttleThresholdSlider').addEventListener('input', (e) => {
+  throttleThreshold = parseFloat(e.target.value);
+  document.getElementById('throttleThresholdReadout').textContent = throttleThreshold.toFixed(2);
+});
+
+function missionParams() {
+  const params = new URLSearchParams(readMissionControls());
+  const seedVal = document.getElementById('seedInput').value.trim();
+  if (seedVal) params.set('seed', seedVal);
+  return params;
+}
+
+function showFlightStart(frame) {
+  document.getElementById('flightStart').textContent = 'Flight started: ' +
+    Math.abs(frame.x_offset_from_pad_center).toFixed(0) + ' m horizontally from pad · ' +
+    frame.fuel + ' fuel units';
+}
+
+function enterReplayMode() {
+  mode = 'replay';
+  replayIndex = frames.length - 1;
+  replayPlaying = false;
+  document.getElementById('playBtn').textContent = 'Play';
+  setReplayControlsEnabled(frames.length > 1);
+  currentAction = actions.length ? actions[actions.length - 1] : null;
+  beginTransition(frames[frames.length - 1], 1);
+}
+
+function flyNewEpisode() {
+  if (eventSource) { eventSource.close(); eventSource = null; }
+  stopManual();
+
+  const overlay = document.getElementById('overlay');
+  const overlayText = document.getElementById('overlayText');
+  const flyBtn = document.getElementById('flyBtn');
+  const manualBtn = document.getElementById('manualBtn');
+  overlay.hidden = false;
+  overlayText.textContent = 'Connecting to Jev...';
+  flyBtn.disabled = true;
+  manualBtn.disabled = true;
+  setReplayControlsEnabled(false);
+
+  mode = 'live';
+  meta = null;
+  frames = [];
+  actions = [];
+  prevDisplay = null;
+  targetDisplay = null;
+  currentAction = null;
+  document.getElementById('lastRun').textContent = '';
+  document.getElementById('flightStart').textContent = 'Waiting for starting state…';
+  resetJevLink();
+
+  const params = missionParams();
+  params.set('attitude_threshold', String(attitudeThreshold));
+  params.set('throttle_threshold', String(throttleThreshold));
+  const url = '/api/episode/stream?' + params.toString();
+  // Tween duration adapts to how long the real gap since the last tick
+  // actually was, instead of a fixed guess -- a fixed short tween made slow
+  // ticks look like "pause, then snap"; this makes the motion track the
+  // real (uneven) API pacing smoothly instead. Clamped so a very fast tick
+  // doesn't look instantaneous and a very slow one doesn't hang forever.
+  const MIN_TWEEN_MS = 150, MAX_TWEEN_MS = 2200;
+  let lastFrameArrival = null;
+
+  // Redraw the timeline on a clock, not just on new ticks -- otherwise the
+  // gridline ruler only moves when a decision arrives, which looks static
+  // during any gap between ticks even though real time is still passing.
+  if (timelineRedrawTimer) clearInterval(timelineRedrawTimer);
+  timelineRedrawTimer = setInterval(drawTimeline, 250);
+
+  eventSource = new EventSource(url);
+  eventSource.onmessage = (ev) => {
+    const data = JSON.parse(ev.data);
+
+    if (data.type === 'meta') {
+      meta = data;
+      lastFrameArrival = performance.now();
+      return;
+    }
+    if (data.type === 'frame') {
+      if (frames.length === 0) showFlightStart(data.frame);
+      frames.push(data.frame);
+      if (data.action !== null) actions.push(data.action);
+      currentAction = data.action;
+      overlay.hidden = true;
+      const now = performance.now();
+      const gap = lastFrameArrival === null ? MIN_TWEEN_MS : now - lastFrameArrival;
+      lastFrameArrival = now;
+      beginTransition(data.frame, Math.min(MAX_TWEEN_MS, Math.max(MIN_TWEEN_MS, gap)));
+      recordJevTick(data.tick_ms, data.steps, data.action, data.frame.tick, data.frame);
+      return;
+    }
+    if (data.type === 'done') {
+      eventSource.close();
+      eventSource = null;
+      if (timelineRedrawTimer) { clearInterval(timelineRedrawTimer); timelineRedrawTimer = null; }
+      flyBtn.disabled = false;
+      manualBtn.disabled = false;
+      document.getElementById('lastRun').innerHTML =
+        '<b>' + (meta ? meta.episode_id : '') + '</b> &middot; ' + data.ticks + ' ticks &middot; outcome: <b>' + data.outcome.replace(/_/g, ' ') + '</b>';
+      enterReplayMode();
+      return;
+    }
+    if (data.type === 'error') {
+      overlayText.textContent = 'Run failed: ' + data.message;
+      eventSource.close();
+      eventSource = null;
+      if (timelineRedrawTimer) { clearInterval(timelineRedrawTimer); timelineRedrawTimer = null; }
+      flyBtn.disabled = false;
+      manualBtn.disabled = false;
+      mode = 'idle';
+      return;
+    }
+  };
+  eventSource.onerror = () => {
+    if (mode === 'live') {
+      overlayText.textContent = 'Connection to the server was lost. Check the server terminal and try again.';
+    }
+    if (eventSource) { eventSource.close(); eventSource = null; }
+    flyBtn.disabled = false;
+    manualBtn.disabled = false;
+  };
+}
+document.getElementById('flyBtn').addEventListener('click', flyNewEpisode);
+
+// Human-play mode: same physics/terrain Jev flies, driven by keyboard
+// instead of Jev API calls, so you can try landing it yourself and see
+// first-hand what makes it hard (thrust-to-weight margin, fuel budget,
+// braking lead time) rather than only inferring it from Jev's crash rate.
+// Every tick is applied server-side via /api/manual/step (reuses the exact
+// same apply_action physics Jev's episodes run on) and logged to the same
+// audit db as Jev runs (step="human", outcome="human_input") so human and
+// Jev attempts are comparable later.
+let manualEpisodeId = null;
+let manualTimer = null;
+let manualKeys = { left: false, right: false, thrust: false };
+// held: current physical key state. latched: "was pressed at all since the
+// last tick" -- a tap shorter than one polling interval still sets the
+// held flag momentarily, but if it's released again before the next poll
+// fires, the plain `held` read would miss it entirely. Latching fixes
+// that: every keydown sets both held and latched; every tick consumes
+// (reads + clears) latched, so even a sub-interval tap always fires for
+// at least one physics step.
+let manualLatch = { left: false, right: false, thrust: false };
+// Physics itself now steps at whatever dt it's given (see apply_action's
+// dt param) -- stepping the manual loop at ~60ms instead of Jev's fixed
+// 500ms is what actually fixes "can't tap the spacebar briefly": a tap
+// held for only ~100ms used to be entirely swallowed by (or entirely fill)
+// one 500ms tick; at 60ms/tick it resolves into 1-2 short, correctly-sized
+// thrust pulses instead.
+const MANUAL_DT_MS = 60;
+const MANUAL_SIM_DT = 0.06;
+let manualInFlight = false;
+let manualLastLoggedAction = null;
+let manualLastLogAt = 0;
+
+function manualActionFromKeys() {
+  const thrust = manualKeys.thrust || manualLatch.thrust;
+  const left = manualKeys.left || manualLatch.left;
+  const right = manualKeys.right || manualLatch.right;
+  manualLatch.thrust = false; manualLatch.left = false; manualLatch.right = false;
+  // Keyboard always fires at full strength (100%) on whichever axis is
+  // held -- the graduated 25/50/75/100 tiers are how JEV expresses "how
+  // much", a human just holds the key longer/shorter instead.
+  const attitude = left && !right ? 'rotate_left_100' : (right && !left ? 'rotate_right_100' : '');
+  const throttle = thrust ? 'thrust_100' : '';
+  const parts = [attitude, throttle].filter(Boolean);
+  return parts.length ? parts.join('_') : 'no_op';
+}
+
+function stopManual() {
+  if (manualTimer) { clearInterval(manualTimer); manualTimer = null; }
+  manualEpisodeId = null;
+  manualKeys = { left: false, right: false, thrust: false };
+  manualLatch = { left: false, right: false, thrust: false };
+  document.getElementById('manualBtn').disabled = false;
+  document.getElementById('flyBtn').disabled = false;
+}
+
+async function manualTick() {
+  if (!manualEpisodeId || manualInFlight) return;
+  const action = manualActionFromKeys();
+  currentAction = action;
+  manualInFlight = true;
+  let resp;
+  try {
+    resp = await fetch('/api/manual/step', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ episode_id: manualEpisodeId, action, dt: MANUAL_SIM_DT }),
+    });
+  } catch (e) {
+    document.getElementById('overlayText').textContent = 'Lost connection to the server.';
+    manualInFlight = false;
+    stopManual();
+    return;
+  }
+  manualInFlight = false;
+  if (!resp.ok) { stopManual(); return; }
+  const data = await resp.json();
+  frames.push(data.frame);
+  actions.push(data.action);
+  beginTransition(data.frame, MANUAL_DT_MS);
+  // Command Log logs on ACTION CHANGE (or every 500ms while held), not
+  // every ~60ms tick -- at this polling rate a raw per-tick log would be
+  // hundreds of rows a second and unreadable; this still shows every
+  // distinct command issued and roughly how long each was held.
+  const now = performance.now();
+  if (data.action !== manualLastLoggedAction || now - manualLastLogAt > 500) {
+    logHumanCommand(data.frame.tick, data.action, data.frame);
+    manualLastLoggedAction = data.action;
+    manualLastLogAt = now;
+  }
+  if (data.done) {
+    document.getElementById('lastRun').innerHTML =
+      '<b>you</b> &middot; ' + data.frame.tick + ' ticks &middot; outcome: <b>' + data.frame.status.replace(/_/g, ' ') + '</b>';
+    stopManual();
+    enterReplayMode();
+  }
+}
+
+async function playManually() {
+  if (eventSource) { eventSource.close(); eventSource = null; }
+  stopManual();
+
+  const overlay = document.getElementById('overlay');
+  overlay.hidden = true;
+  document.getElementById('manualBtn').disabled = true;
+  document.getElementById('flyBtn').disabled = true;
+  setReplayControlsEnabled(false);
+
+  mode = 'human';
+  meta = null;
+  frames = [];
+  actions = [];
+  prevDisplay = null;
+  targetDisplay = null;
+  currentAction = null;
+  document.getElementById('lastRun').textContent = '';
+  document.getElementById('flightStart').textContent = 'Waiting for starting state…';
+  resetJevLink();
+
+  const params = missionParams();
+
+  const resp = await fetch('/api/manual/start?' + params.toString());
+  const data = await resp.json();
+  meta = data;
+  manualEpisodeId = data.episode_id;
+  showFlightStart(data.frame);
+  frames.push(data.frame);
+  beginTransition(data.frame, 1);
+  logHumanCommand(data.frame.tick, null, data.frame);
+
+  manualTimer = setInterval(manualTick, MANUAL_DT_MS);
+}
+document.getElementById('manualBtn').addEventListener('click', playManually);
+
+window.addEventListener('keydown', (e) => {
+  if (mode !== 'human') return;
+  if (e.code === 'ArrowLeft') { manualKeys.left = true; manualLatch.left = true; e.preventDefault(); }
+  else if (e.code === 'ArrowRight') { manualKeys.right = true; manualLatch.right = true; e.preventDefault(); }
+  else if (e.code === 'Space') { manualKeys.thrust = true; manualLatch.thrust = true; e.preventDefault(); }
+});
+window.addEventListener('keyup', (e) => {
+  if (mode !== 'human') return;
+  if (e.code === 'ArrowLeft') { manualKeys.left = false; e.preventDefault(); }
+  else if (e.code === 'ArrowRight') { manualKeys.right = false; e.preventDefault(); }
+  else if (e.code === 'Space') { manualKeys.thrust = false; e.preventDefault(); }
+});
+
+function loop(ts) {
+  if (lastTs === null) lastTs = ts;
+  const dt = ts - lastTs;
+  lastTs = ts;
+
+  if (mode === 'replay' && replayPlaying && frames.length > 1) {
+    const tickMs = meta?.episode_id?.startsWith('human-') ? MANUAL_DT_MS : REPLAY_TICK_MS;
+    replayAcc += dt;
+    while (replayAcc >= tickMs) {
+      replayAcc -= tickMs;
+      if (replayIndex < frames.length - 1) {
+        replayIndex++;
+        currentAction = actions[replayIndex - 1];
+        beginTransition(frames[replayIndex], tickMs);
+      } else {
+        replayPlaying = false;
+        document.getElementById('playBtn').textContent = 'Play';
+        break;
+      }
+    }
+  }
+
+  if (targetDisplay) renderNow();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// "View Jev Prompt": the exact criteria/instructions text jev_player.py
+// sends, fetched live from the server rather than duplicated here, so it
+// can never drift from what's actually being sent. The point is to make
+// tuning Jev's behavior mean editing the prompt first, not the physics --
+// this panel is what you'd read before deciding which one to change.
+let promptData = null;
+let promptQuestion = 'attitude';
+let latestGuidedPayload = null;
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Forecast criteria contain structured JSON; render strings as-is, anything
+// else as compact JSON so the actual data shape sent to Jev is visible.
+function promptValueHtml(v) {
+  return escapeHtml(typeof v === 'string' ? v : JSON.stringify(v));
+}
+
+function renderPromptBody() {
+  const el = document.getElementById('promptBody');
+  if (!promptData) { el.textContent = 'Loading…'; return; }
+  const q = promptData[promptQuestion];
+  const v = latestGuidedPayload ? latestGuidedPayload.questions[promptQuestion] : q;
+  let html = '';
+  if (v.note) html += '<p>' + escapeHtml(v.note) + '</p>';
+  html += '<div class="prompt-section-title">Goal</div>';
+  html += '<div class="prompt-goal">' + promptValueHtml(v.instructions.goal) + '</div>';
+  html += '<div class="prompt-section-title">Choices &amp; Criteria</div>';
+  for (const [choice, desc] of Object.entries(v.criteria)) {
+    html += '<div class="prompt-choice-row"><span class="prompt-choice-name">' + escapeHtml(choice) +
+      '</span><span class="prompt-choice-desc">' + promptValueHtml(desc) + '</span></div>';
+  }
+  html += '<div class="prompt-section-title">Rules</div>';
+  html += '<ol class="prompt-rule-list">' + v.instructions.rules.map(r => '<li>' + promptValueHtml(r) + '</li>').join('') + '</ol>';
+  html += '<div class="prompt-section-title">State fields Jev sees for this question</div>';
+  html += '<div class="prompt-keys">' + ['flight_targets'].map(escapeHtml).join(', ') + '</div>';
+  el.innerHTML = html;
+}
+
+async function ensurePromptData() {
+  if (promptData) return promptData;
+  try {
+    const resp = await fetch('/api/prompts');
+    promptData = await resp.json();
+  } catch (e) {
+    promptData = null;
+  }
+  return promptData;
+}
+
+async function openPromptOverlay() {
+  document.getElementById('promptOverlay').hidden = false;
+  if (!(await ensurePromptData())) {
+    document.getElementById('promptBody').textContent = 'Could not load prompt data from the server.';
+    return;
+  }
+  renderPromptBody();
+}
+
+// Both control prompts, followed by the complete live request.
+async function renderInlinePrompt() {
+  const body = document.getElementById('inlinePromptBody');
+  const tag = document.getElementById('inlinePromptStatus');
+  if (!(await ensurePromptData())) return;
+  tag.textContent = latestGuidedPayload ? 'Live payload' : 'Example guidance';
+  const render = (q) => {
+    const v = latestGuidedPayload ? latestGuidedPayload.questions[q] : promptData[q];
+    let html = '<div class="prompt-section-title">' + (q === 'attitude' ? 'Attitude (RCS)' : 'Throttle (main engine)') + '</div>';
+    html += '<div class="prompt-goal">' + promptValueHtml(v.instructions.goal) + '</div>';
+    html += '<ol class="prompt-rule-list">' + v.instructions.rules.map(r => '<li>' + promptValueHtml(r) + '</li>').join('') + '</ol>';
+    return html;
+  };
+  body.innerHTML = render('attitude') + render('throttle');
+  if (latestGuidedPayload) {
+    body.innerHTML += '<div class="prompt-section-title">Actual payload this tick</div><pre>' + escapeHtml(JSON.stringify(latestGuidedPayload, null, 2)) + '</pre>';
+  }
+}
+document.getElementById('promptBtn').addEventListener('click', openPromptOverlay);
+document.getElementById('promptCloseBtn').addEventListener('click', () => {
+  document.getElementById('promptOverlay').hidden = true;
+});
+document.getElementById('promptOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'promptOverlay') document.getElementById('promptOverlay').hidden = true;
+});
+document.querySelectorAll('.prompt-tab').forEach(b => {
+  b.addEventListener('click', () => {
+    promptQuestion = b.dataset.q;
+    document.querySelectorAll('.prompt-tab').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    renderPromptBody();
+  });
+});
+</script>
+</body>
+</html>

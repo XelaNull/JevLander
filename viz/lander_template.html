@@ -1,0 +1,569 @@
+<title>Jev Lander Replay</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root {
+    --bg: #0a0d16;
+    --bg-deep: #05070d;
+    --panel: #121729;
+    --panel-2: #171d33;
+    --line: #262d47;
+    --text: #dfe4f5;
+    --text-dim: #8891ab;
+    --amber: #ffb454;
+    --amber-dim: #a9793a;
+    --cyan: #6be6d6;
+    --red: #ff6b6b;
+    --green: #79e07f;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --bg: #eef1f8;
+    --bg-deep: #e2e6f2;
+    --panel: #ffffff;
+    --panel-2: #f4f6fc;
+    --line: #d6dbec;
+    --text: #1a1f33;
+    --text-dim: #5b6280;
+    --amber: #b5730f;
+    --amber-dim: #d99a3e;
+    --cyan: #0f8f7c;
+    --red: #c23b3b;
+    --green: #2a9d3f;
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow Condensed', system-ui, sans-serif;
+    padding: 20px 16px 32px;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 20px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 14px;
+  }
+  h1 {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    margin: 0;
+    color: var(--text);
+  }
+  h1 span { color: var(--amber); }
+  .subtitle {
+    font-size: 15px;
+    color: var(--text-dim);
+    margin: 2px 0 0;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(240px, 0.9fr);
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 780px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .stage {
+    background: var(--bg-deep);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+  }
+  canvas { display: block; width: 100%; height: auto; }
+
+  .status-badge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border-radius: 5px;
+    background: rgba(10, 13, 22, 0.7);
+    border: 1px solid var(--line);
+  }
+  .status-badge[data-s="flying"] { color: var(--cyan); }
+  .status-badge[data-s="landed"] { color: var(--green); border-color: var(--green); }
+  .status-badge[data-s="crashed"], .status-badge[data-s="out_of_fuel_crashed"] { color: var(--red); border-color: var(--red); }
+
+  .transport {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  button {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.02em;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 8px 16px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--amber-dim); }
+  button.primary { background: var(--amber); color: #221604; border-color: var(--amber); }
+  button.primary:hover { filter: brightness(1.08); }
+  button:disabled { opacity: 0.4; cursor: default; }
+
+  .scrub {
+    flex: 1 1 160px;
+    min-width: 120px;
+    accent-color: var(--amber);
+  }
+  .tick-readout {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+    min-width: 78px;
+    text-align: right;
+  }
+
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 8px 11px; font-size: 13px; }
+  .speed-group button.active { background: var(--panel); border-color: var(--cyan); color: var(--cyan); }
+
+  .episodes {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .episodes h2, .telemetry h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--text-dim);
+    margin: 0 0 10px;
+    font-weight: 600;
+  }
+  .ep-list { display: flex; flex-direction: column; gap: 6px; }
+  .ep-btn {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    text-align: left;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 9px 11px;
+    font-size: 14px;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .ep-btn .ep-outcome {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .ep-btn[data-outcome="landed"] .ep-outcome { color: var(--green); background: rgba(121,224,127,0.12); }
+  .ep-btn[data-outcome="crashed"] .ep-outcome,
+  .ep-btn[data-outcome="out_of_fuel_crashed"] .ep-outcome { color: var(--red); background: rgba(255,107,107,0.12); }
+  .ep-btn.active { border-color: var(--amber); }
+  .ep-btn:hover { border-color: var(--amber-dim); }
+
+  .telemetry {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px;
+    margin-top: 14px;
+  }
+  .tele-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 14px;
+  }
+  .tele-cell { display: flex; flex-direction: column; gap: 2px; }
+  .tele-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-dim);
+  }
+  .tele-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+  .tele-value.warn { color: var(--amber); }
+  .tele-value.bad { color: var(--red); }
+  .tele-value.good { color: var(--green); }
+
+  .action-row {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .action-chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    padding: 6px 11px;
+    border-radius: 6px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+  }
+  .action-chip.thrust { color: var(--amber); border-color: var(--amber-dim); }
+  .action-chip.rotate { color: var(--cyan); border-color: var(--cyan); }
+
+  footer {
+    margin-top: 20px;
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  footer a { color: var(--cyan); }
+</style>
+
+<header>
+  <div>
+    <h1>Jev<span>Lander</span> Replay</h1>
+    <p class="subtitle">Real tick-by-tick episodes: TypeSafe's Jev classifier flying a Lunar Lander via two concurrent Choice questions per tick.</p>
+  </div>
+</header>
+
+<div class="layout">
+  <div>
+    <div class="stage">
+      <span class="status-badge mono" id="statusBadge" data-s="flying">flying</span>
+      <canvas id="scene" width="900" height="620"></canvas>
+    </div>
+    <div class="transport">
+      <button id="playBtn" class="primary">Pause</button>
+      <button id="restartBtn">Restart</button>
+      <input type="range" id="scrub" class="scrub" min="0" max="1" value="0" step="1" />
+      <span class="tick-readout mono" id="tickReadout">t=0</span>
+      <div class="speed-group">
+        <button data-speed="0.5">0.5x</button>
+        <button data-speed="1" class="active">1x</button>
+        <button data-speed="2">2x</button>
+        <button data-speed="4">4x</button>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="episodes">
+      <h2>Episodes</h2>
+      <div class="ep-list" id="epList"></div>
+    </div>
+
+    <div class="telemetry">
+      <h2>Telemetry</h2>
+      <div class="tele-grid">
+        <div class="tele-cell"><span class="tele-label">Altitude</span><span class="tele-value mono" id="tAlt">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Fuel</span><span class="tele-value mono" id="tFuel">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Vx / Vy</span><span class="tele-value mono" id="tVel">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Angle</span><span class="tele-value mono" id="tAngle">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Aim error</span><span class="tele-value mono" id="tAim">—</span></div>
+        <div class="tele-cell"><span class="tele-label">Braking margin</span><span class="tele-value mono" id="tBrake">—</span></div>
+      </div>
+      <div class="action-row">
+        <span class="tele-label">Action</span>
+        <span class="action-chip mono" id="tAction">no_op</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Five full episodes from the <span class="mono">dual_loop</span> strategy (independent attitude/RCS + main-engine throttle questions, asked to Jev every tick) &mdash;
+  recorded from live TypeSafe API calls, not simulated. Rotation and thrust fire concurrently, mirroring how a real spacecraft's RCS and descent engine operate as separate control systems.
+</footer>
+
+<script>
+const TRACES = /*__TRACE_DATA__*/;
+
+const canvas = document.getElementById('scene');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+let epIndex = 0;
+let frameIndex = 0;
+let playing = true;
+let speed = 1;
+let acc = 0;
+const TICK_MS = 140; // ms of real time per simulated tick at 1x
+
+// Fixed world window (matches physics.random_initial_state ranges with margin)
+const WORLD_X_MIN = -60, WORLD_X_MAX = 60;
+const WORLD_Y_MIN = 0, WORLD_Y_MAX = 100;
+
+function worldToScreen(x, y) {
+  const sx = (x - WORLD_X_MIN) / (WORLD_X_MAX - WORLD_X_MIN) * W;
+  const sy = H - 60 - (y - WORLD_Y_MIN) / (WORLD_Y_MAX - WORLD_Y_MIN) * (H - 90);
+  return [sx, sy];
+}
+
+// Starfield (fixed per load)
+const stars = [];
+(function seedStars() {
+  let s = 1234567;
+  function rnd() { s = (s * 1103515245 + 12345) & 0x7fffffff; return (s % 10000) / 10000; }
+  for (let i = 0; i < 140; i++) {
+    stars.push({ x: rnd() * W, y: rnd() * (H - 90), r: rnd() * 1.4 + 0.3, a: rnd() * 0.6 + 0.25 });
+  }
+})();
+
+function css(varName) {
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+}
+
+function drawScene(frame, prevFrames, action) {
+  ctx.clearRect(0, 0, W, H);
+
+  // sky gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, css('--bg-deep'));
+  grad.addColorStop(1, css('--bg'));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // stars
+  ctx.fillStyle = '#ffffff';
+  for (const st of stars) {
+    ctx.globalAlpha = st.a;
+    ctx.beginPath();
+    ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // ground + pad
+  const groundY = worldToScreen(0, 0)[1];
+  ctx.fillStyle = '#0000';
+  ctx.strokeStyle = css('--line');
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, groundY);
+  ctx.lineTo(W, groundY);
+  ctx.stroke();
+
+  const [padX1] = worldToScreen(frame.pad_x_min, 0);
+  const [padX2] = worldToScreen(frame.pad_x_max, 0);
+  ctx.strokeStyle = css('--amber');
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(padX1, groundY);
+  ctx.lineTo(padX2, groundY);
+  ctx.stroke();
+  ctx.fillStyle = css('--text-dim');
+  ctx.font = '11px "JetBrains Mono", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('LANDING PAD', (padX1 + padX2) / 2, groundY + 18);
+
+  // trail
+  ctx.strokeStyle = css('--cyan');
+  ctx.globalAlpha = 0.4;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let i = 0; i < prevFrames.length; i++) {
+    const [px, py] = worldToScreen(prevFrames[i].x, prevFrames[i].y);
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // lander
+  const [lx, ly] = worldToScreen(frame.x, frame.y);
+  ctx.save();
+  ctx.translate(lx, ly);
+  ctx.rotate(frame.angle_deg * Math.PI / 180);
+
+  const bodyH = 26, bodyW = 18;
+  // flame
+  if (action && (action.includes('thrust'))) {
+    ctx.beginPath();
+    ctx.moveTo(-6, bodyH * 0.55);
+    ctx.lineTo(6, bodyH * 0.55);
+    ctx.lineTo(0, bodyH * 0.55 + 16 + Math.random() * 8);
+    ctx.closePath();
+    const flameGrad = ctx.createLinearGradient(0, bodyH * 0.55, 0, bodyH * 0.55 + 22);
+    flameGrad.addColorStop(0, '#fff3c4');
+    flameGrad.addColorStop(1, css('--amber'));
+    ctx.fillStyle = flameGrad;
+    ctx.fill();
+  }
+  // RCS puffs
+  if (action === 'rotate_left' || action === 'rotate_left_thrust') {
+    ctx.fillStyle = css('--cyan');
+    ctx.beginPath();
+    ctx.arc(bodyW * 0.65, -bodyH * 0.35, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (action === 'rotate_right' || action === 'rotate_right_thrust') {
+    ctx.fillStyle = css('--cyan');
+    ctx.beginPath();
+    ctx.arc(-bodyW * 0.65, -bodyH * 0.35, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // body
+  ctx.beginPath();
+  ctx.moveTo(0, -bodyH * 0.6);
+  ctx.lineTo(bodyW * 0.5, bodyH * 0.5);
+  ctx.lineTo(-bodyW * 0.5, bodyH * 0.5);
+  ctx.closePath();
+  ctx.fillStyle = frame.status === 'flying' ? '#e7ebf7' : (frame.status === 'landed' ? css('--green') : css('--red'));
+  ctx.fill();
+  ctx.strokeStyle = css('--line');
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // legs
+  ctx.strokeStyle = '#aab1cc';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-bodyW * 0.45, bodyH * 0.3);
+  ctx.lineTo(-bodyW * 0.9, bodyH * 0.65);
+  ctx.moveTo(bodyW * 0.45, bodyH * 0.3);
+  ctx.lineTo(bodyW * 0.9, bodyH * 0.65);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function fmt(n, d) { return (typeof n === 'number') ? n.toFixed(d) : '—'; }
+
+function renderTelemetry(frame, action) {
+  document.getElementById('tAlt').textContent = fmt(frame.altitude, 1) + ' m';
+  const fuelEl = document.getElementById('tFuel');
+  fuelEl.textContent = fmt(frame.fuel, 1);
+  fuelEl.className = 'tele-value mono' + (frame.fuel < 15 ? ' bad' : frame.fuel < 40 ? ' warn' : '');
+  document.getElementById('tVel').textContent = fmt(frame.vx, 2) + ' / ' + fmt(frame.vy, 2) + ' m/s';
+  document.getElementById('tAngle').textContent = fmt(frame.angle_deg, 1) + '°';
+  const aimEl = document.getElementById('tAim');
+  aimEl.textContent = fmt(frame.aim_error_deg, 1) + '°';
+  aimEl.className = 'tele-value mono' + (Math.abs(frame.aim_error_deg) > frame.aim_deadband_deg ? ' warn' : ' good');
+  const brakeEl = document.getElementById('tBrake');
+  brakeEl.textContent = fmt(frame.braking_margin_m, 1) + ' m';
+  brakeEl.className = 'tele-value mono' + (frame.braking_margin_m < 0 ? ' warn' : ' good');
+
+  const actionEl = document.getElementById('tAction');
+  actionEl.textContent = action || 'no_op';
+  actionEl.className = 'action-chip mono' + (action && action.includes('thrust') ? ' thrust' : '') + (action && action.includes('rotate') ? ' rotate' : '');
+
+  const badge = document.getElementById('statusBadge');
+  badge.textContent = frame.status;
+  badge.dataset.s = frame.status;
+}
+
+function currentTrace() { return TRACES[epIndex]; }
+
+function renderFrame() {
+  const trace = currentTrace();
+  const frame = trace.frames[frameIndex];
+  const action = frameIndex > 0 ? trace.actions[frameIndex - 1] : null;
+  drawScene(frame, trace.frames.slice(0, frameIndex + 1), action);
+  renderTelemetry(frame, action);
+  document.getElementById('scrub').max = trace.frames.length - 1;
+  document.getElementById('scrub').value = frameIndex;
+  document.getElementById('tickReadout').textContent = 't=' + frameIndex + '/' + (trace.frames.length - 1);
+}
+
+function buildEpisodeList() {
+  const list = document.getElementById('epList');
+  list.innerHTML = '';
+  TRACES.forEach((trace, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'ep-btn' + (i === epIndex ? ' active' : '');
+    btn.dataset.outcome = trace.outcome;
+    btn.innerHTML = '<span>Episode ' + (i + 1) + ' &middot; ' + (trace.frames.length - 1) + ' ticks</span>' +
+      '<span class="ep-outcome mono">' + trace.outcome.replace(/_/g, ' ') + '</span>';
+    btn.addEventListener('click', () => {
+      epIndex = i;
+      frameIndex = 0;
+      playing = true;
+      document.getElementById('playBtn').textContent = 'Pause';
+      buildEpisodeList();
+      renderFrame();
+    });
+    list.appendChild(btn);
+  });
+}
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  playing = !playing;
+  document.getElementById('playBtn').textContent = playing ? 'Pause' : 'Play';
+});
+document.getElementById('restartBtn').addEventListener('click', () => {
+  frameIndex = 0;
+  playing = true;
+  document.getElementById('playBtn').textContent = 'Pause';
+  renderFrame();
+});
+document.getElementById('scrub').addEventListener('input', (e) => {
+  frameIndex = parseInt(e.target.value, 10);
+  playing = false;
+  document.getElementById('playBtn').textContent = 'Play';
+  renderFrame();
+});
+document.querySelectorAll('.speed-group button').forEach(b => {
+  b.addEventListener('click', () => {
+    speed = parseFloat(b.dataset.speed);
+    document.querySelectorAll('.speed-group button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+  });
+});
+
+let lastTs = null;
+function loop(ts) {
+  if (lastTs === null) lastTs = ts;
+  const dt = ts - lastTs;
+  lastTs = ts;
+  if (playing) {
+    acc += dt * speed;
+    while (acc >= TICK_MS) {
+      acc -= TICK_MS;
+      const trace = currentTrace();
+      if (frameIndex < trace.frames.length - 1) {
+        frameIndex++;
+      } else {
+        playing = false;
+        document.getElementById('playBtn').textContent = 'Play';
+      }
+    }
+    renderFrame();
+  }
+  requestAnimationFrame(loop);
+}
+
+buildEpisodeList();
+renderFrame();
+requestAnimationFrame(loop);
+</script>
