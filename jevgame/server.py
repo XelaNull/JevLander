@@ -1,7 +1,7 @@
 """Local HTTP server: watch Jev fly a fresh Lunar Lander episode live, in a
 browser, on your own machine -- no hosting, no Artifact. Run with:
 
-    python -m jevgame.server [port]
+    python -m jevgame.server [port] [--token-file PATH | --token-env NAME]
 
 Then open http://127.0.0.1:<port> (default 8971). Click "Fly New Episode"
 to stream one real guidance-assisted Jev episode live over
@@ -12,10 +12,10 @@ the fact.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import random
-import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -303,10 +303,28 @@ class Handler(BaseHTTPRequestHandler):
                 pass
 
 
-def main() -> None:
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_PORT
-    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
-    print(f"JevGame server running at http://127.0.0.1:{port} -- Ctrl+C to stop")
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(prog="jevgame-serve")
+    parser.add_argument("port", nargs="?", type=int, default=DEFAULT_PORT)
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument(
+        "--token-file", type=Path, metavar="PATH",
+        help="read the API token from a plain-text file",
+    )
+    source.add_argument(
+        "--token-env", metavar="NAME",
+        help="read the API token from this environment variable",
+    )
+    args = parser.parse_args(argv)
+    try:
+        jev_player.configure_token_source(
+            token_file=args.token_file, token_env=args.token_env,
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
+
+    server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+    print(f"JevGame server running at http://127.0.0.1:{args.port} -- Ctrl+C to stop")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

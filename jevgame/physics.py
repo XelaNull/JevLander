@@ -113,8 +113,7 @@ MAX_LANDING_ANGLE_DEG = 15.0
 CRITICAL_TILT_DEG = 45.0
 
 # Derived-field tuning for the "aim" signal exposed in as_dict(). A single-shot
-# classifier has no memory of prior ticks (Claude Plays Pokemon's "Memento"
-# problem, see README addendum), so an open-loop question like "does this
+# classifier has no memory of prior ticks, so an open-loop question like "does this
 # need correcting" repeated every tick can never tell "corrected enough" from
 # "keep going" and will overshoot/oscillate. Instead we compute a fresh
 # target angle every tick and expose the *error* against that target, so

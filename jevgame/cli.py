@@ -16,6 +16,27 @@ from .physics import apply_action, initial_state, random_initial_state
 from .render import render_ascii
 
 
+def _add_token_source_args(parser: argparse.ArgumentParser) -> None:
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument(
+        "--token-file", type=Path, metavar="PATH",
+        help="read the API token from a plain-text file",
+    )
+    source.add_argument(
+        "--token-env", metavar="NAME",
+        help="read the API token from this environment variable",
+    )
+
+
+def _configure_token_source(args: argparse.Namespace) -> None:
+    try:
+        jev_player.configure_token_source(
+            token_file=args.token_file, token_env=args.token_env,
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+
+
 def _validate_thresholds(args: argparse.Namespace) -> None:
     for value in (args.threshold, args.attitude_threshold, args.throttle_threshold):
         if value is not None and (not math.isfinite(value) or not 0 <= value <= 1):
@@ -35,6 +56,7 @@ def _validate_distance_bounds(min_distance: float, max_distance: float) -> None:
 def cmd_benchmark(args: argparse.Namespace) -> None:
     from .benchmark import run_benchmark
 
+    _configure_token_source(args)
     if args.episodes < 1:
         raise SystemExit("--episodes must be positive")
     _validate_distance_bounds(args.min_distance, args.max_distance)
@@ -66,6 +88,7 @@ def cmd_watch(args: argparse.Namespace) -> None:
 
 def cmd_run(args: argparse.Namespace) -> None:
     """Run N Jev-piloted episodes, log every tick, print an honest summary."""
+    _configure_token_source(args)
     if args.episodes < 1:
         raise SystemExit("--episodes must be positive")
     _validate_thresholds(args)
@@ -148,7 +171,7 @@ def _print_summary(results: list, db_path: Path) -> None:
         print(f"  action distribution across ticks: {action_counts}")
     else:
         print("\nNo Jev calls were logged with a confidence value (all api_failure/invalid_choice, "
-              "or no API key configured) -- see jev_calls table for outcome breakdown.")
+              "or no API token configured) -- see jev_calls table for outcome breakdown.")
 
     print(f"\nFull tick-by-tick audit log: {db_path}")
 
@@ -174,6 +197,7 @@ def main() -> None:
     run.add_argument("--seed", type=int, default=None)
     run.add_argument("--attitude-threshold", type=float)
     run.add_argument("--throttle-threshold", type=float)
+    _add_token_source_args(run)
     run.set_defaults(func=cmd_run)
 
     bench = sub.add_parser("benchmark", help="live guided API trials on reproducible seeds, full audit")
@@ -186,6 +210,7 @@ def main() -> None:
     bench.add_argument("--min-distance", type=float, default=25)
     bench.add_argument("--max-distance", type=float, default=90)
     bench.add_argument("--output", type=Path, required=True)
+    _add_token_source_args(bench)
     bench.set_defaults(func=cmd_benchmark)
 
     args = parser.parse_args()

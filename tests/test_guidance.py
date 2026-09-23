@@ -44,7 +44,7 @@ def test_guided_applies_actual_model_choice_without_override(monkeypatch):
     calls = []
     raw = {"answers": {"attitude": {"choice": "rotate_right_25", "confidence": .9},
                        "throttle": {"choice": "thrust_75", "confidence": .8}}}
-    monkeypatch.setattr(jev_player, "_read_api_key", lambda: "test-key")
+    monkeypatch.setattr(jev_player, "_read_token", lambda: "test-token")
     def call(payload, key):
         calls.append(payload)
         return raw
@@ -66,7 +66,7 @@ def test_guided_applies_actual_model_choice_without_override(monkeypatch):
 ])
 def test_question_failure_preserves_raw_and_other_control(monkeypatch, answer, outcome):
     raw = {"answers": {"attitude": answer, "throttle": {"choice": "thrust_50", "confidence": .7}}}
-    monkeypatch.setattr(jev_player, "_read_api_key", lambda: "test-key")
+    monkeypatch.setattr(jev_player, "_read_token", lambda: "test-token")
     monkeypatch.setattr(jev_player, "_call_jev_api", lambda *args: raw)
     action, steps = jev_player.choose_action_guided(initial_state(), attitude_threshold=.55, throttle_threshold=.55)
     assert action == "thrust_50"
@@ -76,13 +76,30 @@ def test_question_failure_preserves_raw_and_other_control(monkeypatch, answer, o
 
 
 def test_api_failure_defaults_both_controls(monkeypatch):
-    monkeypatch.setattr(jev_player, "_read_api_key", lambda: "test-key")
+    monkeypatch.setattr(jev_player, "_read_token", lambda: "test-token")
     def fail(*args):
         raise TimeoutError()
     monkeypatch.setattr(jev_player, "_call_jev_api", fail)
     action, steps = jev_player.choose_action_guided(initial_state(), attitude_threshold=.55, throttle_threshold=.55)
     assert action == "no_op"
     assert all(s["outcome"] == "api_failure" for s in steps)
+
+
+def test_token_source_reads_file_or_environment(tmp_path, monkeypatch):
+    token_file = tmp_path / "token"
+    token_file.write_text(" file-token \n")
+    try:
+        jev_player.configure_token_source(token_file=token_file)
+        assert jev_player._read_token() == "file-token"
+
+        monkeypatch.setenv("TEST_API_TOKEN", "env-token")
+        jev_player.configure_token_source(token_env="TEST_API_TOKEN")
+        assert jev_player._read_token() == "env-token"
+
+        with pytest.raises(ValueError):
+            jev_player.configure_token_source(token_file=token_file, token_env="TEST_API_TOKEN")
+    finally:
+        jev_player.configure_token_source()
 
 
 def test_wilson_interval_does_not_claim_certainty():

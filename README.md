@@ -31,8 +31,10 @@ keeps the physics, terrain, fuel use, and landing thresholds fixed. Mission
 distance and starting fuel apply to the next Jev or manual flight; replay speed
 is independent of difficulty.
 
-The API key is read at runtime from `~/.fibril/typesafe_api_key`. It is never
-stored in this repository.
+API access is optional for the physics-only demo and manual mode. Live guided
+runs require an access token, supplied explicitly as either a plain-text file
+or an environment-variable name. The two sources are mutually exclusive and
+the token is never stored in this repository.
 
 ## How the controller works
 
@@ -65,7 +67,17 @@ Run live Jev episodes and write one SQLite audit database:
 
 ```sh
 .venv/bin/python -m jevgame.cli run \
-  --episodes 10 --seed 1000 --db runs/jev_calls.db
+  --episodes 10 --seed 1000 --db runs/jev_calls.db \
+  --token-env API_TOKEN
+```
+
+Replace `API_TOKEN` with the name of the environment variable that holds
+your token. A file can be used instead:
+
+```sh
+.venv/bin/python -m jevgame.cli run \
+  --episodes 10 --db runs/jev_calls.db \
+  --token-file ~/.config/jevgame/token
 ```
 
 Run a reproducible holdout benchmark. The output directory must not already
@@ -74,8 +86,20 @@ requests and responses, per-episode results, and a 95% Wilson interval.
 
 ```sh
 .venv/bin/python -m jevgame.cli benchmark \
-  --episodes 60 --seed-start 1000 --output runs/my-holdout
+  --episodes 60 --seed-start 1000 --output runs/my-holdout \
+  --token-env API_TOKEN
 ```
+
+The web server accepts the same options:
+
+```sh
+.venv/bin/python -m jevgame.server --token-env API_TOKEN
+```
+
+Use `--token-env NAME` for an environment-variable name or `--token-file PATH`
+for a file containing only the token. If neither is supplied, guided requests
+fall back safely and record an API failure while the local simulation remains
+usable.
 
 Use `--attitude-threshold` and `--throttle-threshold` for independent gates,
 and `--min-distance` and `--max-distance` to match a benchmark to the UI's
@@ -113,5 +137,5 @@ navigation or adds control value.
 - `jevgame/server.py` and `jevgame/web/index.html` — local web game, manual controls, and replay.
 - `tests/` — physics, controller, server, benchmark, and web-script checks.
 
-The project stays standalone: it does not connect to Fibril's daemon or
+The project stays standalone: it does not connect to an external daemon or
 database, train Jev, or expose open-ended actions.

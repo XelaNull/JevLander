@@ -9,11 +9,10 @@ Jev controller, local web UI, audit logger, and benchmark runner. Read the curre
 README and inspect the source before changing behavior; the README is product
 documentation now, rather than a future implementation brief.
 
-## Key references (outside this repo)
+## Key references
 
-- `~/github/Fibril/JEV.md` — eight shipped production Jev integrations, the canonical examples of the Choice-question shape.
-- `~/github/Fibril/src/fibril/jev_dedup.py` — authoritative reference for the Jev HTTP call shape, endpoint, payload, and `_read_api_key()` pattern. Copy this pattern, don't reinvent it.
-- `~/.fibril/typesafe_api_key` — plain-text API key, read at runtime only. **Never** copy its value into this repo, into a committed file, or into any doc.
+- `docs/jev-research.md` — payload design, experiments, measured results, and limitations.
+- The provider API documentation — authoritative reference for the HTTP call shape, endpoint, payload, and token requirements.
 
 ## Non-negotiable discipline (from README Part 1)
 
@@ -34,7 +33,7 @@ Keep these modules decoupled — the simulation must remain testable and watchab
 
 ## Build → Test → Deploy → JevTest+Feedback loop
 
-This repo uses a repeating four-stage loop, defined in `scripts/loop.sh`, and driven by a scheduled cloud agent (see `.claude/workflows/` or the cron entry — check `CronList` if unsure whether one is active).
+This repo uses a repeating four-stage loop, defined in `scripts/loop.sh`.
 
 Stages, run in order every iteration:
 
@@ -47,7 +46,7 @@ Each iteration should end with a short written note (where the loop's outputs la
 
 ## What not to do
 
-- Don't connect to Fibril's live daemon, database, or any production system — this repo is fully standalone.
+- Don't connect to any external daemon, database, or production system — this repo is fully standalone.
 - Don't fine-tune or train Jev on gameplay data.
 - Don't give Jev actions outside the fixed per-tick taxonomy.
 - Don't skip the honest-reporting step — a landing success rate alone isn't the point; explain *why*.

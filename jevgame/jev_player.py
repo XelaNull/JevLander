@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
 from pathlib import Path
 from typing import Any
 
@@ -18,19 +19,39 @@ from .physics import Action, GameState, combine_action
 logger = logging.getLogger(__name__)
 
 _API_URL = "https://api.typesafe.ai/v1/systemone"
-_API_KEY_PATH = Path.home() / ".fibril" / "typesafe_api_key"
 _MODEL = "jev-latest"
 _TIMEOUT_SEC = 10.0
+
+_TOKEN_FILE: Path | None = None
+_TOKEN_ENV: str | None = None
 
 DEFAULT_CONFIDENCE_THRESHOLD = 0.55
 
 
-def _read_api_key() -> str | None:
-    try:
-        key = _API_KEY_PATH.read_text().strip()
-    except OSError:
-        return None
-    return key or None
+def configure_token_source(*, token_file: str | Path | None = None,
+                           token_env: str | None = None) -> None:
+    """Select the access-token source used by subsequent API calls."""
+    if token_file is not None and token_env is not None:
+        raise ValueError("Choose either a token file or an environment variable, not both")
+    if token_env is not None and not token_env.strip():
+        raise ValueError("Token environment variable name cannot be empty")
+
+    global _TOKEN_FILE, _TOKEN_ENV
+    _TOKEN_FILE = Path(token_file).expanduser() if token_file is not None else None
+    _TOKEN_ENV = token_env.strip() if token_env is not None else None
+
+
+def _read_token() -> str | None:
+    if _TOKEN_FILE is not None:
+        try:
+            token = _TOKEN_FILE.read_text().strip()
+        except OSError:
+            return None
+        return token or None
+    if _TOKEN_ENV is not None:
+        token = os.environ.get(_TOKEN_ENV, "").strip()
+        return token or None
+    return None
 
 
 _client: httpx.Client | None = None
@@ -64,12 +85,12 @@ def _estimate_input_tokens(payload: dict[str, Any]) -> int:
         return max(1, len(text) // 4)  # crude fallback if tiktoken is unavailable
 
 
-def _call_jev_api(payload: dict[str, Any], api_key: str) -> dict[str, Any]:
+def _call_jev_api(payload: dict[str, Any], token: str) -> dict[str, Any]:
     """Raw HTTP call, zero error handling -- callers catch everything."""
     resp = _get_client().post(
         _API_URL,
         json=payload,
-        headers={"Authorization": f"Bearer {api_key}"},
+        headers={"Authorization": f"Bearer {token}"},
     )
     resp.raise_for_status()
     return resp.json()
@@ -84,10 +105,10 @@ def choose_action_guided(
     payload = build_payload(state, _MODEL)
     result = None
     try:
-        api_key = _read_api_key()
-        if not api_key:
-            raise ValueError("No TypeSafe API key configured")
-        result = _call_jev_api(payload, api_key)
+        token = _read_token()
+        if not token:
+            raise ValueError("No API token configured")
+        result = _call_jev_api(payload, token)
     except Exception as exc:
         logger.warning("Guided Jev request failed (%s)", type(exc).__name__)
 

@@ -34,7 +34,7 @@ independently validate their authors' gameplay success claims.
 | [TypeSafe Mario](https://github.com/fhshaik/typesafe-mario/blob/main/src/typesafe_mario/policy.py) | Object-centric motion, terrain, hazard and reaction-time data; controller-macro Choice plus independent jump and danger questions | Calculate timing and projected hazards before calling Jev; keep a bounded action choice |
 | [TypeSafe Snake](https://github.com/sorrycc/typesafe-snake/blob/master/src/jev/prompt.ts) | Board state plus per-move criteria containing computed food distance, reachable area and escape facts | Put each candidate's concrete consequences directly beside that candidate |
 | [Jev Autopilot](https://github.com/arielweinberger/jev-autopilot/blob/main/server/pilot.ts) | Telemetry translated into situation descriptions; separate throttle, yaw, pitch and roll questions | Isolate control dimensions and expose compact motion facts |
-| Local Fibril `src/fibril/jev_dedup.py` | Bounded candidate work orders, a yes/no Choice, explicit uncertainty fallback | Strict choice validation, confidence gating and raw-response audit |
+| Local controller integration | Bounded candidate work orders, a yes/no Choice, explicit uncertainty fallback | Strict choice validation, confidence gating and raw-response audit |
 
 The drone example includes self-leveling/hover behavior in its control semantics.
 Its inputs are therefore not directly transferable to this game's undamped angular

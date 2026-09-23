@@ -1,7 +1,6 @@
 """Durable local audit log of every Jev call, tick-by-tick (README Part 2,
 item 3). SQLite file so it's queryable after the fact; never raises --
-audit logging must never break the game loop (same discipline as Fibril's
-jev_audit.py, which this mirrors at much smaller scale)."""
+audit logging must never break the game loop."""
 from __future__ import annotations
 
 import json
