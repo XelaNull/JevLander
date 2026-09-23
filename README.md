@@ -1,9 +1,16 @@
 # JevGame
 
+[![GitHub stars](https://img.shields.io/github/stars/XelaNull/JevLander?style=flat-square)](https://github.com/XelaNull/JevLander/stargazers)
+[![Open issues](https://img.shields.io/github/issues/XelaNull/JevLander?style=flat-square)](https://github.com/XelaNull/JevLander/issues)
+[![Latest commit](https://img.shields.io/github/last-commit/XelaNull/JevLander?style=flat-square)](https://github.com/XelaNull/JevLander/commits/master)
+[![Repository size](https://img.shields.io/github/repo-size/XelaNull/JevLander?style=flat-square)](https://github.com/XelaNull/JevLander)
+
 JevGame is a research toy in which TypeSafe's Jev classifier pilots a Lunar
 Lander through typed Choice questions. It includes deterministic physics, a
 local web interface, manual play, replay, SQLite audit logs, and a reproducible
 benchmark runner.
+
+Jev resources: [TypeSafe AI](https://typesafe.ai/) · [Jev release announcement](https://typesafe.ai/blog/introducing-system-one-models-and-jev) · [Get Jev access](https://console.typesafe.ai/)
 
 ## Screenshots
 
